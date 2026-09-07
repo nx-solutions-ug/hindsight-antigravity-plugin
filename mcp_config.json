@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "hindsight": {
+      "command": "node",
+      "args": ["./bin/mcp-server.js"]
+    }
+  }
+}

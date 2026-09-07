@@ -1,0 +1,14 @@
+{
+  "name": "hindsight",
+  "version": "1.0.0",
+  "description": "Antigravity plugin for Hindsight: mental models injection, automatic topic recall, and autolearning",
+  "skills": "./skills",
+  "rules": "./rules",
+  "hooks": "./hooks.json",
+  "mcpServers": {
+    "hindsight": {
+      "command": "node",
+      "args": ["./bin/mcp-server.js"]
+    }
+  }
+}

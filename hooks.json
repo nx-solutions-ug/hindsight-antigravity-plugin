@@ -1,0 +1,18 @@
+{
+  "hindsight": {
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "node ./bin/pre-invocation.js",
+        "timeout": 30
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node ./bin/stop-hook.js",
+        "timeout": 30
+      }
+    ]
+  }
+}

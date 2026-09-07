@@ -1,0 +1,66 @@
+{
+  "name": "@chronova/hindsight-antigravity-plugin",
+  "version": "1.0.0",
+  "description": "Antigravity plugin for Hindsight: mental models injection, automatic topic recall, and autolearning",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "hindsight-antigravity-pre-invocation": "bin/pre-invocation.js",
+    "hindsight-antigravity-stop-hook": "bin/stop-hook.js",
+    "hindsight-antigravity-mcp": "bin/mcp-server.js",
+    "hindsight-antigravity-install": "bin/install.js"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "rules",
+    "skills",
+    "plugin.json",
+    "hooks.json",
+    "mcp_config.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "bun test",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "bun run build",
+    "semantic-release": "semantic-release",
+    "install-plugin": "node ./bin/install.js"
+  },
+  "keywords": [
+    "antigravity",
+    "hindsight",
+    "memory",
+    "mental-models",
+    "plugin",
+    "mcp",
+    "ai-agent"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nx-solutions-ug/hindsight-antigravity-plugin.git"
+  },
+  "homepage": "https://github.com/nx-solutions-ug/hindsight-antigravity-plugin#readme",
+  "author": "nx-solutions-ug",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  },
+  "devDependencies": {
+    "@semantic-release/changelog": "^7.0.0",
+    "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/git": "^11.0.0",
+    "@semantic-release/github": "^12.0.0",
+    "@semantic-release/npm": "^13.0.0",
+    "@semantic-release/release-notes-generator": "^14.0.3",
+    "@types/node": "^22.13.1",
+    "semantic-release": "^25.0.0",
+    "tsup": "^8.3.6",
+    "typescript": "^5.7.3"
+  }
+}
