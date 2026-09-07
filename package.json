@@ -1,6 +1,6 @@
 {
   "name": "@chronova/hindsight-antigravity-plugin",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Antigravity plugin for Hindsight: mental models injection, automatic topic recall, and autolearning",
   "type": "module",
   "main": "dist/index.js",
