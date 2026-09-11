@@ -2,7 +2,10 @@
   "mcpServers": {
     "hindsight": {
       "command": "node",
-      "args": ["./bin/mcp-server.js"]
+      "args": ["${PLUGIN_ROOT}/bin/mcp-server.js"],
+      "env": {
+        "HINDSIGHT_MCP_HARNESS": "antigravity-cli"
+      }
     }
   }
 }

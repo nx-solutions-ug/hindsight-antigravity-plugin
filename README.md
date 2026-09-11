@@ -1,239 +1,254 @@
 # Hindsight Antigravity Plugin
 
-An official plugin for **Google Antigravity** integrating **Hindsight** persistent long-term agent memory.
+Long-term project memory for **Google Antigravity** (`agy`), backed by
+[Hindsight](https://hindsight.vectorize.io). This package is the Antigravity packaging of
+[`@vectorize-io/hindsight-coding-agents`](https://github.com/vectorize-io/hindsight) — it wires that
+runtime's `antigravity-cli` harness into Antigravity's lifecycle hooks, its stdio MCP server, its
+status line and its companion skill, and implements no memory logic of its own. Everything about how
+memory is recalled, retained, scoped to a bank and configured belongs to the runtime; this plugin's
+job is wiring, fail-safe delegation and packaging.
 
-The plugin enables Antigravity to:
-1. **Connect to any Hindsight memory bank** via flexible configuration (workspace config, global config, environment variables, or automatic repository derivation).
-2. **Inject Mental Models into the System Prompt**: Automatically fetches living mental models (architecture, coding conventions, domain rules) from the configured bank and injects them into the prompt before every turn (`PreInvocation` hook).
-3. **Automatic Topic Recall**: Semantically searches the memory bank based on the user's prompt topic and injects relevant historical facts and past decisions into context.
-4. **Autolearn & Auto-Retain**: Asynchronously retains conversations at the end of each session (`Stop` hook) with automatic turn deduplication and synthetic tag stripping.
-5. **Model Context Protocol (MCP) Server**: Exposes 8 dedicated tools for on-demand memory recall, retention, reflection, and mental model management.
-6. **Agent Rules & Skills**: Comes with pre-configured rules (`rules/AGENTS.md`) and an interactive management skill (`skills/hindsight/SKILL.md`).
-
----
-
-## Plugin Architecture
-
-```text
-hindsight-antigravity-plugin/
-├── plugin.json                 # Antigravity plugin manifest
-├── hooks.json                  # Lifecycle hooks (PreInvocation, Stop)
-├── mcp_config.json             # Stdio MCP server registration
-├── rules/
-│   └── AGENTS.md               # Contextual agent rules for memory citation & usage
-├── skills/
-│   └── hindsight/
-│       └── SKILL.md            # Interactive skill for explicit memory operations
-├── src/
-│   ├── config.ts               # Multi-tiered configuration resolver
-│   ├── client.ts               # Robust Hindsight REST client
-│   ├── mental-models.ts        # Mental models fetcher, cache, and prompt injector
-│   ├── recall.ts               # Semantic topic recall engine
-│   ├── retain.ts               # Transcript parser, tag cleaner & auto-retain batcher
-│   ├── hooks/
-│   │   ├── pre-invocation.ts   # PreInvocation hook (injects mental models + recall)
-│   │   └── stop-hook.ts        # Stop hook (retains conversation turns)
-│   ├── mcp/
-│   │   └── server.ts           # Stdio MCP Server (8 tools)
-│   └── installer.ts            # One-step installer
-├── bin/
-│   ├── pre-invocation.js       # PreInvocation hook CLI binary
-│   ├── stop-hook.js            # Stop hook CLI binary
-│   ├── mcp-server.js           # MCP server CLI binary
-│   └── install.js              # Plugin installation script
-└── test/                       # Comprehensive test suite (14 tests)
-```
+There is **no setup command and no ingest command**. Open a repo in Antigravity and the memory for
+that repo builds itself in the background.
 
 ---
 
 ## Installation
 
-### Option 1: Install via Bun / NPM (Global)
+### Option 1: As an Antigravity plugin
 
-Install the package globally via Bun or NPM:
-
-```bash
-bun add -g @chronova/hindsight-antigravity-plugin
-# or
-npm install -g @chronova/hindsight-antigravity-plugin
-```
-
-Then run the installer to set up the plugin in Antigravity:
-
-```bash
-hindsight-antigravity-install
-```
-
-### Option 2: Run via Bunx / Npx directly
-
-```bash
-bunx @chronova/hindsight-antigravity-plugin install
-```
-
-### Option 3: Local Repository Installation
-
-From the cloned repository:
+The repository is a plugin in its own right — `plugin.json`, `hooks.json` and `mcp_config.json`
+point at this package's `bin/` wrappers via `${PLUGIN_ROOT}`. Install it the way you install any
+Antigravity plugin, or from a checkout:
 
 ```bash
 bun install
 bun run build
-node ./bin/install.js          # Global to ~/.gemini/config/plugins/hindsight
-node ./bin/install.js --local  # Local to .agents/plugins/hindsight
 ```
+
+### Option 2: Merge the wiring into your Antigravity config
+
+```bash
+node ./bin/install.js
+```
+
+This merges the same wiring into your existing Antigravity configuration rather than copying a
+plugin directory:
+
+| file                                          | what is added                                                     |
+| --------------------------------------------- | ----------------------------------------------------------------- |
+| `~/.gemini/config/hooks.json`                  | the `PreInvocation` and `Stop` hooks, grouped under `coding-agents` |
+| `~/.gemini/config/mcp_config.json`             | `mcpServers.hindsight`, with `HINDSIGHT_MCP_HARNESS=antigravity-cli` |
+| `~/.gemini/antigravity-cli/settings.json`      | the `Hindsight · <bank>` status line (an existing custom status line is preserved) |
+| `~/.gemini/config/skills/hindsight-coding-agent` | the companion skill                                               |
+
+Each file is backed up once to `<path>.hindsight-backup` before it is first rewritten.
+
+On a fresh machine the installer can also seed the config file, without ever overwriting a field it
+already sets:
+
+```bash
+node ./bin/install.js --server cloud --api-token <token>
+node ./bin/install.js --server self-hosted --api-url http://localhost:8888
+node ./bin/install.js --server daemon
+```
+
+### Option 3: Upstream's own installer
+
+```bash
+npx @vectorize-io/hindsight-coding-agents install agy
+```
+
+Upstream writes the **same entries under the same marker**, so the two routes replace each other
+rather than doubling up — pick whichever you prefer, and re-running either one is safe.
+
+---
+
+## What happens automatically
+
+Nothing below needs a command.
+
+- **One memory bank per repository.** The default `bankIdTemplate` is `coding-agent::{gitProject}`,
+  so every coding agent you run against a repo — Antigravity included — shares one bank, and linked
+  worktrees resolve to the main checkout's bank.
+- **Seeding on first open.** A cold bank is seeded from recent commit messages plus a read-only
+  codebase survey of the repo's structure.
+- **Background top-ups each session start.** New commits and new conversations are folded in by the
+  runtime's ingestion engine, which does only the missing work.
+- **5 maintained knowledge pages** — architecture, conventions, in-flight initiatives and the like —
+  kept current on their own schedule.
+- **One deep `reflect` synthesis** injected on a session's first prompt.
+- **Transcript write-back at session end**, so the conversation is retained without anyone saving it.
 
 ---
 
 ## Configuration
 
-The plugin resolves configuration using the following priority order:
+Configuration is **one JSON file**: `~/.hindsight/coding-agent.json`. `HINDSIGHT_CONFIG` relocates
+it. This plugin does not read or write a config file of its own, and there is deliberately no
+repo-carried config.
 
-### 1. Workspace Configuration (Highest Priority)
-Create a `.hindsight.json` or `hindsight.config.json` in your project root:
+Layering, later wins per field:
 
-```json
+1. built-in defaults
+2. environment variables — `HINDSIGHT_API_URL`, `HINDSIGHT_API_TOKEN`, and one per scalar setting
+   (`HINDSIGHT_<FIELD_IN_CAPS>`)
+3. the file's top level
+4. `harnesses.<name>` — for Antigravity that section is `harnesses.antigravity-cli`
+5. `banks.<resolvedBankId>` — per-repo, applied after the bank is resolved
+
+Environment variables are a **fallback**: the file wins wherever it sets a value.
+
+Each hook is its own short-lived process, so an edit to the file lands on your **next prompt**.
+`apiToken` is the exception — it is re-read whenever the server rejects a request, so rotating a key
+needs no restart.
+
+### Where memory lives
+
+| `serverMode`  | what runs                                 | needs                                     |
+| ------------- | ----------------------------------------- | ----------------------------------------- |
+| `cloud`       | Hindsight Cloud (default)                 | an API token                              |
+| `self-hosted` | a Hindsight server you already run        | its `apiUrl`                              |
+| `daemon`      | a local `hindsight-embed` on this machine | `uv` on PATH + an LLM key for extraction  |
+
+In `daemon` mode the runtime starts `hindsight-embed` on `127.0.0.1:9077` (`apiPort`) and adopts a
+server already on the port rather than restarting it. The first cold start downloads the daemon and
+loads models, which takes longer than a hook may run, so it happens in the background: a session
+that starts first simply has no memory for a turn or two.
+
+### Settings you actually reach for
+
+```jsonc
 {
-  "apiUrl": "https://api.refz.link",
-  "apiKey": "your-api-key",
-  "bankId": "my-project-bank",
-  "autoRecall": true,
-  "autoRetain": true,
-  "mentalModelsEnabled": true,
-  "recallBudget": "mid"
+  "serverMode": "cloud",
+  "apiToken": "…",
+  "bankIdTemplate": "coding-agent::{gitProject}", // one bank per repo (default)
+  "harnesses": {
+    "antigravity-cli": { "reflectTimeoutMs": 60000 },
+  },
+  "banks": {
+    "coding-agent::secret-client": { "disabled": true }, // no memory for this repo at all
+    "coding-agent::big-mono": { "gitIngest": "full" },
+  },
 }
 ```
 
-### 2. Environment Variables & Scoping Options
-You can specify credentials and bank scoping parameters via environment variables or workspace config:
+| field              | default                        | meaning                                                                       |
+| ------------------ | ------------------------------ | ----------------------------------------------------------------------------- |
+| `apiUrl`           | Hindsight Cloud                | API base URL; set it for a self-hosted server                                  |
+| `apiToken`         | —                              | bearer token; re-read on rejection, so rotation needs no restart               |
+| `bankIdTemplate`   | `"coding-agent::{gitProject}"` | dynamic bank id; `{harness}`, `{project}` and `{gitProject}` are available     |
+| `mapPathToBank`    | —                              | absolute path → bank, longest prefix wins                                      |
+| `banks.<bankId>`   | —                              | per-repo override of any behavioural field, keyed by the resolved bank id      |
+| `disabled`         | `false`                        | hard off-switch — globally, per harness, or per bank                           |
+| `optInOnly`        | `false`                        | remember nothing except under `optInPaths`                                     |
+| `gitIngest`        | `"message"`                    | `"message"` \| `"full"` (messages + per-commit diffs) \| `"none"`              |
+| `autoReflect`      | `true`                         | inject the session-start reflect; `false` makes reflect tool-only              |
+| `retainSessions`   | `true`                         | session write-back at `Stop`                                                   |
+| `logLevel`         | `"info"`                       | verbosity of `~/.hindsight/coding-agents-logs/plugin.log`                      |
 
-| Variable | Description | Default |
-| :--- | :--- | :--- |
-| `HINDSIGHT_API_URL` | Hindsight server endpoint | `https://api.refz.link` |
-| `HINDSIGHT_API_KEY` | Bearer authentication key | *(optional)* |
-| `HINDSIGHT_BANK_ID` | Memory bank identifier | Auto-derived from Git/folder |
-| `HINDSIGHT_BANK_SCOPE` | Bank scoping mode: `per-project-tagged`, `per-project`, `global` | `per-project-tagged` (if shared bank set), else `per-project` |
-| `HINDSIGHT_PROJECT_NAME` | Project name override (used for tags and bank names) | Auto-derived from Git root or folder |
-| `HINDSIGHT_PROJECT_TAG_PREFIX` | Prefix for project tags (e.g. `project:`) | `project:` |
-| `HINDSIGHT_BANK_ID_TEMPLATE` | Bank template for `per-project` mode (e.g. `pi-memory-{project}`) | *(optional)* |
-| `HINDSIGHT_AUTO_RECALL` | Enable automatic recall on user prompts (`true`/`false`) | `true` |
-| `HINDSIGHT_AUTO_RETAIN` | Enable autolearning on conversation end (`true`/`false`) | `true` |
-| `HINDSIGHT_MENTAL_MODELS`| Enable automatic mental models injection (`true`/`false`)| `true` |
-| `HINDSIGHT_RECALL_BUDGET`| Recall computation depth (`low`, `mid`, `high`) | `mid` |
-
----
-
-## Bank Scoping Modes
-
-Hindsight memories and mental models can be scoped in three distinct ways:
-
-### 1. `per-project-tagged` (Shared Bank, Scoped by Project Tag)
-All projects share a single bank (e.g. `pi-memory`), but each project's data is isolated via tags:
-- **Retain**: Every retained conversation is tagged with `project:<project-name>`.
-- **Recall**: Semantic memory recall automatically filters by `tags: ["project:<project-name>"]`.
-- **Mental Models**: Only mental models tagged with `project:<project-name>` are fetched and injected.
-- *Best for*: Central team banks where multiple codebases reside in the same Hindsight bank.
-
-```json
-{
-  "bankId": "pi-memory",
-  "bankScope": "per-project-tagged"
-}
-```
-
-### 2. `per-project` (Dedicated Bank Per Project)
-Each project has its own dedicated memory bank in Hindsight:
-- **Direct Mode**: Bank ID equals the project name (e.g. `my-repo-name`).
-- **Template Mode**: Use `bankIdTemplate: "pi-memory-{project}"` to generate e.g. `pi-memory-my-repo-name`.
-- *Best for*: Strict isolation where each repository has an independent memory store.
-
-```json
-{
-  "bankScope": "per-project",
-  "bankIdTemplate": "pi-memory-{project}"
-}
-```
-
-### 3. `global` (Shared Unscoped Bank)
-All conversations and mental models share the specified bank without project tags or filters:
-- *Best for*: Personal assistants or monolithic projects where all memories apply globally.
-
-```json
-{
-  "bankId": "hermes",
-  "bankScope": "global"
-}
-```
+The full reference — opt-in policy, knowledge-page refresh cadence, observation scopes, daemon
+settings, provenance tags — lives in
+[upstream's README](https://github.com/vectorize-io/hindsight). Do not take settings from anywhere
+else; this plugin invents none.
 
 ---
 
-### 3. Global Hindsight Config (`~/.hindsight/config`)
-The plugin automatically reads your existing Hindsight CLI config file (`~/.hindsight/config`):
+## MCP tools
 
-```ini
-api_url = "https://api.refz.link"
-api_key = "your-api-key"
-bank_id = "my-shared-bank"
-```
+The stdio MCP server registered as `hindsight` is the runtime's, started with
+`HINDSIGHT_MCP_HARNESS=antigravity-cli`:
 
-### 4. Automatic Project and Bank ID Fallback
-If no `projectName` or `bankId` is explicitly defined, the plugin automatically derives a clean, sanitized identifier from your Git repository or workspace folder (e.g. `my-awesome-repo`).
-
----
-
-## How It Works in Antigravity
-
-### 1. PreInvocation Hook
-Before the model generates a response, Antigravity fires the `PreInvocation` hook:
-- Fetches active **Mental Models** from Hindsight (cached with TTL) and injects:
-  ```markdown
-  <hindsight_mental_models bank="my-bank">
-  #### Mental Model: Coding Standards (coding-standards)
-  - Use TypeScript strict mode
-  - Follow modular patterns
-  </hindsight_mental_models>
-  ```
-- Parses the user's latest prompt, triggers semantic recall, and injects:
-  ```markdown
-  <hindsight_recalled_memories bank="my-bank" topic="auth service">
-  - Auth service requires TEST_DATABASE_URL on CI
-  - Tokens expire after 15 minutes
-  </hindsight_recalled_memories>
-  ```
-
-### 2. Stop Hook
-When the execution loop finishes, Antigravity fires the `Stop` hook:
-- Reads the session JSONL transcript from `transcriptPath`.
-- Strips any prior synthetic memory tags.
-- Verifies session watermarks to only retain uncommitted conversation turns.
-- Posts turns asynchronously (`async: true`) to the Hindsight ingestion pipeline.
-
-### 3. MCP Tools
-The plugin includes a full Model Context Protocol server exposing:
-- `hindsight_recall(query, budget, max_tokens, tags)`: Query memories.
-- `hindsight_retain(content, context, tags)`: Explicitly store high-value knowledge.
-- `hindsight_list_mental_models()`: List living project documents.
-- `hindsight_get_mental_model(mental_model_id)`: Retrieve full mental model contents.
-- `hindsight_create_mental_model(name, source_query)`: Define a new mental model.
-- `hindsight_refresh_mental_model(mental_model_id)`: Trigger re-synthesis against latest memories.
-- `hindsight_reflect(query, budget)`: Deep historical reasoning synthesis.
-- `hindsight_status()`: Diagnostic status of server and memory bank.
+| tool                              | use                                                                  |
+| --------------------------------- | -------------------------------------------------------------------- |
+| `hindsight_search_knowledge_pages` | first stop for project questions — fast server-side hybrid search    |
+| `hindsight_read_knowledge_page`    | read one page in full                                                |
+| `hindsight_list_knowledge_pages`   | the page roster for this bank                                        |
+| `hindsight_reflect`                | deep synthesis over the whole memory; slower, use deliberately       |
+| `hindsight_ingest_document`        | store an external document, durable finding, or a correction         |
+| `hindsight_capture_initiative`     | record an agreed plan, and update it via `relates_to_page_id`        |
+| `hindsight_diagnose`               | what the config file says vs. what the running client is using       |
+| `hindsight_sync_status`            | is the seeded memory queryable yet (`"synced": true`)                |
 
 ---
 
-## Development & Testing
+## How a turn flows
+
+1. **`PreInvocation`** (`bin/pre-invocation.js` → `src/hooks/pre-invocation.ts`). Antigravity sends
+   `workspacePaths[]`, `conversationId` and `transcriptPath` on stdin — there is no prompt field, so
+   the runtime recovers the last user turn from the transcript JSONL itself. It resolves the bank,
+   reflects or searches knowledge pages, and replies
+   `{"injectSteps":[{"ephemeralMessage":"…"}]}`. This is Antigravity's only injection point, so it
+   also carries the session-start work other harnesses do in a `SessionStart` hook.
+2. **The turn runs.** The agent has the injected memory in context, the rules in `rules/AGENTS.md`,
+   the companion skill, and the `hindsight_*` tools.
+3. **`Stop`** (`bin/stop-hook.js` → `src/hooks/stop-hook.ts`). Antigravity sends `conversationId`,
+   `transcriptPath` and `workspacePaths`; the runtime writes the transcript back into the bank and
+   the hook replies `{}`.
+4. **Status line** (`bin/statusline.js`) prints `Hindsight · <bank>`.
+
+Every hook is fail-safe: if the runtime cannot be started at all, the wrapper writes the event's
+neutral reply (`{"injectSteps":[]}` or `{}`), logs the reason to stderr and exits zero. The status
+line prints nothing rather than an error. Memory is best-effort; the session is not.
+
+---
+
+## Development
 
 ```bash
-# Install dependencies
-bun install
-
-# Build TypeScript to dist/ and bin/
-bun run build
-
-# Run unit tests (18 tests)
-bun test
-
-# Type check
-bun run lint
+bun install      # dependencies
+bun run build    # tsup: src/ -> dist/
+bun test         # unit tests
+bun run lint     # tsc --noEmit
 ```
+
+To dogfood a change in your own Antigravity: `bun run build`, then `node ./bin/install.js`.
+
+---
+
+## Uninstall
+
+```bash
+node ./bin/install.js uninstall
+```
+
+Removes exactly what the installer added — the hook group, the MCP server entry, the status line
+(restoring a custom one it preserved) and the installed skill — and leaves everything else in those
+files alone. Your memory itself lives in the bank on the server, not on disk; to reset a repo's
+memory, delete its bank.
+
+---
+
+## Upgrading from 1.x
+
+1.x shipped a custom Hindsight client with its own recall/retain pipeline, mental models, three bank
+scoping modes and an eight-tool MCP server. All of it is gone, replaced by the upstream runtime.
+
+- **Old settings are not translated.** `bankScope`, `bankId`, a `bankIdTemplate` using `{project}`,
+  `apiKey`, `mentalModelsEnabled`, `recallBudget` and the rest described a pipeline this runtime
+  replaced, and reinterpreting them would be guesswork. `.hindsight.json`,
+  `hindsight.config.json` and `~/.hindsight/config` are no longer read at all — configure
+  `~/.hindsight/coding-agent.json` instead.
+- **Bank naming changes.** Memory is now one bank per repo, `coding-agent::{gitProject}`, shared by
+  every coding agent you run there. To reproduce the old per-agent naming:
+  ```jsonc
+  { "bankIdTemplate": "{harness}::{gitProject}" }
+  ```
+- **Tools change.** `hindsight_recall`, `hindsight_retain`, `hindsight_status` and every
+  `*_mental_model` tool no longer exist. See the table above for what replaces them:
+  `hindsight_search_knowledge_pages` and `hindsight_reflect` for retrieval,
+  `hindsight_ingest_document` and `hindsight_capture_initiative` for writing.
+- **Injection changes.** Memory now arrives as an ephemeral message before the turn, not as
+  `<hindsight_mental_models>` / `<hindsight_recalled_memories>` blocks.
+- **Re-run the installer** after upgrading so the hook, MCP and status-line entries point at the new
+  wrappers.
+
+---
+
+## Links
+
+- Hindsight: <https://hindsight.vectorize.io>
+- Upstream runtime: <https://github.com/vectorize-io/hindsight>
 
 ## License
 

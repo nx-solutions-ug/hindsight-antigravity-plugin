@@ -1,12 +1,13 @@
 {
   "name": "@chronova/hindsight-antigravity-plugin",
   "version": "1.0.1",
-  "description": "Antigravity plugin for Hindsight: mental models injection, automatic topic recall, and autolearning",
+  "description": "Antigravity plugin packaging of the Hindsight coding-agent runtime: long-term project memory, recalled before each turn and retained after it",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
     "hindsight-antigravity-pre-invocation": "bin/pre-invocation.js",
     "hindsight-antigravity-stop-hook": "bin/stop-hook.js",
+    "hindsight-antigravity-statusline": "bin/statusline.js",
     "hindsight-antigravity-mcp": "bin/mcp-server.js",
     "hindsight-antigravity-install": "bin/install.js"
   },
@@ -31,9 +32,11 @@
   },
   "keywords": [
     "antigravity",
+    "agy",
     "hindsight",
     "memory",
-    "mental-models",
+    "long-term-memory",
+    "coding-agent",
     "plugin",
     "mcp",
     "ai-agent"
@@ -49,7 +52,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0"
+    "@vectorize-io/hindsight-coding-agents": "^0.6.0"
   },
   "devDependencies": {
     "@semantic-release/changelog": "^7.0.0",
