@@ -174,7 +174,10 @@ describe("describeServer", () => {
   });
 
   test("an unknown server mode in the file is ignored, not propagated", () => {
-    const description = describeServer({ serverMode: "teleport" } as CodingAgentConfig, {});
+    // What a hand-edited file can actually contain: a mode the runtime does not define.
+    const config = JSON.parse('{ "serverMode": "teleport" }') as CodingAgentConfig;
+
+    const description = describeServer(config, {});
 
     expect(["cloud", "self-hosted", "daemon"]).toContain(description.mode);
     expect(description.mode).toBe("cloud");
