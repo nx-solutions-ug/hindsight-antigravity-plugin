@@ -1,3 +1,10 @@
+## [3.0.1](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/compare/v3.0.0...v3.0.1) (2026-09-12)
+
+
+### Bug Fixes
+
+* **ci:** bind the head SHA with real jq, not gh api --jq ([bdada52](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/commit/bdada5228d47ad11096240472f05245761c68c1f))
+
 # [3.0.0](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/compare/v2.0.0...v3.0.0) (2026-09-12)
 
 
