@@ -1,3 +1,26 @@
+# [3.0.0](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/compare/v2.0.0...v3.0.0) (2026-09-12)
+
+
+* feat!: retarget the plugin at the Antigravity desktop app ([1e42b46](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/commit/1e42b46709f54de34ed231119e8c97bc2fb5e540))
+
+
+### BREAKING CHANGES
+
+* the install targets change. The MCP server moves from
+~/.gemini/config/mcp_config.json to ~/.gemini/antigravity/mcp_config.json
+(the old file is still cleaned on uninstall, and --shared-mcp writes it
+again), and the companion skill moves from ~/.gemini/config/skills into the
+plugin bundle at ~/.gemini/config/plugins/hindsight. Re-run the installer
+after upgrading. Two things 2.0 wrote are outside what this version knows
+about and need removing by hand: the "statusLine" key in
+~/.gemini/antigravity-cli/settings.json, and
+~/.gemini/config/skills/hindsight-coding-agent. The status-line entry point
+and the hindsight-antigravity-statusline bin are gone. Nothing about memory
+itself changes: same runtime, same harness id, same bank, same tools.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016D9QvuboXvWZwHBYBZG5tS
+
 # [2.0.0](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/compare/v1.0.1...v2.0.0) (2026-09-12)
 
 

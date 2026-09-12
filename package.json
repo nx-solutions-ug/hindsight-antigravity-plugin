@@ -1,6 +1,6 @@
 {
   "name": "@chronova/hindsight-antigravity-plugin",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Hindsight long-term project memory for the Antigravity desktop application: recalled before each turn, retained after it",
   "type": "module",
   "main": "dist/index.js",
