@@ -1,6 +1,6 @@
 {
   "name": "@chronova/hindsight-antigravity-plugin",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "Hindsight long-term project memory for the Antigravity desktop application: recalled before each turn, retained after it",
   "keywords": [
     "ai-agent",

@@ -1,3 +1,10 @@
+## [3.0.3](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/compare/v3.0.2...v3.0.3) (2026-09-12)
+
+
+### Bug Fixes
+
+* do not fail pack/publish when husky is unavailable ([2ab6a44](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/commit/2ab6a44dbd616739bae3233f0e9fad934b1e44dd))
+
 ## [3.0.2](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/compare/v3.0.1...v3.0.2) (2026-09-12)
 
 
