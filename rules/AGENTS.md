@@ -1,43 +1,45 @@
-# Hindsight Memory & Mental Models Rules
+# Hindsight Memory Rules
 
-You are integrated with **Hindsight**, an AI agent memory system providing persistent, long-term memory across sessions.
+You have long-term project memory through Hindsight. One bank per repository, built and maintained
+automatically. These rules cost context on every turn — follow them, don't restate them.
 
-## 1. Mental Models (`<hindsight_mental_models>`)
+## Injected memory
 
-- The active bank's **Mental Models** are automatically fetched and injected into your prompt before every turn.
-- Mental models represent living synthesis: established coding standards, architectural decisions, and project conventions.
-- **Rule**: Follow the conventions established in active mental models. If a user instruction or codebase update supersedes a mental model, follow the current codebase and suggest refreshing the mental model using `hindsight_refresh_mental_model`.
+- Relevant memory arrives as an **ephemeral message before the turn**, injected by the
+  `PreInvocation` hook. Treat it as context you already have, not as something the user said.
+- **Cite it visibly** whenever it informs your answer, at the point it does:
+  `🧠 From Hindsight memory (<page>): …`. Never credit memory that did not contribute.
+- **Verify before acting.** Memory records what was true when it was written. Check the current
+  source, config or git before you change anything on the strength of a recalled fact.
 
-## 2. Topic Recall (`<hindsight_recalled_memories>`)
+## Correcting the record
 
-- Relevant facts, historical decisions, and past bug fixes are automatically recalled based on the user's prompt topic.
-- **Attribution**: When your response relies on recalled memory, visibly attribute it using the standard callout format:
-  ```markdown
-  > 🧠 **From Hindsight memory** — <specific fact or convention drawn on>
-  ```
-- **Verification**: Always verify recalled memory against current project source code before applying changes, especially if code may have evolved since the memory was formed.
+When the code, git, or another source contradicts something memory served, fix it — do not silently
+ignore it. Call `hindsight_ingest_document` with title `Correction: <topic>` and content covering
+(1) what memory claimed, (2) what is verifiably true now, (3) the evidence you checked, with exact
+values quoted. Newer facts outrank older ones in retrieval, so one correction disarms the trap for
+every future session.
 
-## 3. Bank Scoping Modes
+## Capturing initiatives
 
-Hindsight memories and mental models operate under one of three scoping modes:
-- **`per-project-tagged`**: Memories are kept in a shared bank (e.g. `pi-memory`), but tagged with `project:<name>`. Recalled facts and mental models are scoped to the current project's tag.
-- **`per-project`**: The project has its own dedicated bank (e.g. `<project>` or `pi-memory-<project>`).
-- **`global`**: Shared unpartitioned memory bank across projects.
+- Call `hindsight_capture_initiative(title, summary)` once a plan is agreed and before code is
+  written.
+- Call it **again** when the plan materially changes — goal, scope or rationale, including
+  mid-implementation — passing that initiative's page id as `relates_to_page_id` and summarising the
+  current intent. Same page, updated plan; never a second page. Trivial course-corrections don't
+  count.
 
-## 4. Autolearning / Auto-Retain
+## Retrieving
 
-- Conversations are automatically retained in the background at the end of each session. In `per-project-tagged` mode, dialogue turns are automatically tagged with the current project tag.
-- You do not need to manually retain ordinary conversation turns.
-- **Proactive manual retain**: Use `hindsight_retain` when you or the user establish a critical new project decision, an architectural convention, or solve a tricky bug that future sessions must know immediately.
+- `hindsight_search_knowledge_pages(query)` is the **first stop** for project questions — components,
+  conventions, past decisions, initiatives. Fast.
+- `hindsight_read_knowledge_page` / `hindsight_list_knowledge_pages` read pages in full.
+- `hindsight_reflect(query)` is deep synthesis for WHY questions and exact decided values. It takes
+  seconds — search the knowledge pages first and reflect only when they are too shallow.
+- `hindsight_ingest_document` stores an external document or durable finding.
+- `hindsight_diagnose` and `hindsight_sync_status` answer "is memory configured / ready yet".
 
-## 5. MCP Tools Reference
+## Retention
 
-When deep reasoning or manual operations are required, use the provided MCP tools:
-- `hindsight_recall(query, budget, tags)`: Query specific past learnings on-demand.
-- `hindsight_retain(content, context, tags)`: Explicitly persist high-value knowledge.
-- `hindsight_list_mental_models()`: Discover living documents for this project.
-- `hindsight_get_mental_model(mental_model_id)`: Read full details of a specific mental model.
-- `hindsight_create_mental_model(name, source_query)`: Create a new living reflection.
-- `hindsight_refresh_mental_model(mental_model_id)`: Trigger re-synthesis of a mental model.
-- `hindsight_reflect(query)`: Deep reasoning over historical facts.
-- `hindsight_status()`: Verify connection and bank status.
+The conversation is retained automatically at session end by the `Stop` hook. Never save it by hand,
+and never tell the user to.

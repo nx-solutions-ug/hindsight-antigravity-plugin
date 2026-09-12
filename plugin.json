@@ -1,14 +1,17 @@
 {
   "name": "hindsight",
   "version": "1.0.0",
-  "description": "Antigravity plugin for Hindsight: mental models injection, automatic topic recall, and autolearning",
+  "description": "Long-term project memory for Antigravity, backed by the Hindsight coding-agent runtime: past decisions and gotchas are recalled before each turn and what you learn is retained after it.",
   "skills": "./skills",
   "rules": "./rules",
   "hooks": "./hooks.json",
   "mcpServers": {
     "hindsight": {
       "command": "node",
-      "args": ["./bin/mcp-server.js"]
+      "args": ["${PLUGIN_ROOT}/bin/mcp-server.js"],
+      "env": {
+        "HINDSIGHT_MCP_HARNESS": "antigravity-cli"
+      }
     }
   }
 }

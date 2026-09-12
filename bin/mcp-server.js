@@ -1,3 +1,3 @@
 #!/usr/bin/env node
-import { runServer } from "../dist/mcp-server.js";
-void runServer();
+import { run } from "../dist/mcp-server.js";
+void run();
