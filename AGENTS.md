@@ -95,7 +95,7 @@ twice and retain twice.
 ### Harness id vs. host
 
 `HOST` is `"antigravity"` (the app). `RUNTIME_HARNESS` is `"antigravity-cli"` — upstream's name for
-its Antigravity *integration*, hardcoded inside `dist/antigravity-hook.js` and
+its Antigravity _integration_, hardcoded inside `dist/antigravity-hook.js` and
 `dist/antigravity-stop-hook.js` with no way to override it. Because that id selects the
 `harnesses.<id>` config section and feeds `{harness}` in `bankIdTemplate`, the MCP server must be
 given the same value: `HINDSIGHT_MCP_HARNESS=antigravity` would split the tools and the hooks across
@@ -175,10 +175,10 @@ Concretely:
 - `src/config.ts` reads the runtime's config file only for what the installer must report or seed; it
   is not a second resolver.
 - `src/host.ts` owns every install target and the reason for it. Change an install path there, with
-  the comment that justifies it, never inline in the installer. The hook *protocol* (events,
+  the comment that justifies it, never inline in the installer. The hook _protocol_ (events,
   payloads, the `coding-agents` grouping key, the harness id) must keep matching upstream, so a
   machine wired by this plugin or by `install agy` behaves identically and either side can uninstall
-  the other's entries; only the *files written* differ, because the app and the CLI are extended
+  the other's entries; only the _files written_ differ, because the app and the CLI are extended
   differently.
 - Settings, tool names and vocabulary come from upstream's README and skill. Do not invent them.
 

@@ -63,7 +63,7 @@ best-effort; the session is not.
 - When the runtime cannot be started at all, the wrapper writes the event's **neutral reply** —
   `{"injectSteps":[]}` for `PreInvocation`, `{}` for `Stop` — logs the reason to `stderr`, and exits
   **zero**. Never a non-zero exit, never an empty stdout, never a thrown error.
-- Failures *inside* the runtime are the runtime's own to report: it already answers the host and
+- Failures _inside_ the runtime are the runtime's own to report: it already answers the host and
   writes its diagnostics. Only a failure to start it is handled here (`src/hooks/delegate.ts`).
 - There is **no status line** to fail safe. It is a feature of the CLI's TUI, rendered from
   `~/.gemini/antigravity-cli/settings.json`; the desktop app draws its own chrome and has nothing to
@@ -114,11 +114,11 @@ node ./bin/install.js
 
 Three targets, because the app splits them that way:
 
-| path                                             | why there                                                            |
-| ------------------------------------------------ | -------------------------------------------------------------------- |
-| `~/.gemini/config/hooks.json`                    | the global hooks file every Antigravity flavour reads; the app has none of its own |
-| `~/.gemini/antigravity/mcp_config.json`          | the app's **own** MCP registry — the file its "Open MCP Config" button opens |
-| `~/.gemini/config/plugins/hindsight/`            | a namespaced plugin bundle: `plugin.json`, `skills/`, `rules/`       |
+| path                                    | why there                                                                          |
+| --------------------------------------- | ---------------------------------------------------------------------------------- |
+| `~/.gemini/config/hooks.json`           | the global hooks file every Antigravity flavour reads; the app has none of its own |
+| `~/.gemini/antigravity/mcp_config.json` | the app's **own** MCP registry — the file its "Open MCP Config" button opens       |
+| `~/.gemini/config/plugins/hindsight/`   | a namespaced plugin bundle: `plugin.json`, `skills/`, `rules/`                     |
 
 `--shared-mcp` additionally writes Antigravity 2.x's shared `~/.gemini/config/mcp_config.json`. It is
 opt-in because a host that reads both files lists `hindsight` twice; uninstall cleans both regardless.
@@ -128,7 +128,7 @@ opt-in because a host that reads both files lists `hindsight` twice; uninstall c
 - **Never write under `~/.gemini/antigravity-cli/`.** That tree — `settings.json`, the status line,
   the plugin staging directory — belongs to `agy` and to upstream's `install agy`.
 - **The plugin bundle carries no `hooks.json` and no `mcp_config.json`.** The format allows both, but
-  a plugin-level copy is a *second* registration of the same command: two `PreInvocation` entries
+  a plugin-level copy is a _second_ registration of the same command: two `PreInvocation` entries
   inject memory twice and retain the turn twice. Declarative content (skills, rules) is idempotent
   and belongs in the bundle; anything that spawns a process is registered once, at host level.
 - **Commands are absolute paths, written at install time.** Antigravity expands no placeholder in
@@ -142,6 +142,6 @@ exactly what was added and leaves foreign entries alone. Restart the **Antigravi
 new wiring.
 
 `npx @vectorize-io/hindsight-coding-agents install agy` wires the same runtime into the CLI under the
-same `coding-agents` hook name, so keep the hook *protocol* in `src/host.ts` in sync with upstream —
-either route must be able to replace and uninstall the other's hook entries. The *files written*
+same `coding-agents` hook name, so keep the hook _protocol_ in `src/host.ts` in sync with upstream —
+either route must be able to replace and uninstall the other's hook entries. The _files written_
 differ on purpose, and that difference is the whole point of this package.

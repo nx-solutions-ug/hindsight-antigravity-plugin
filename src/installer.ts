@@ -22,11 +22,11 @@
  * Every file is backed up once before the first write, foreign entries are never touched, and
  * uninstall removes exactly what install added.
  */
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { backupOnce } from "./config.js";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { backupOnce } from './config.js';
 import {
   APP_MCP_CONFIG_PATH,
   HOOKS_CONFIG_PATH,
@@ -41,14 +41,14 @@ import {
   SHARED_MCP_CONFIG_PATH,
   SKILL_NAME,
   type HookWiring,
-  type PluginBin
-} from "./host.js";
+  type PluginBin,
+} from './host.js';
 
 /**
  * Re-exported so `bin/install.js` needs exactly one built entry point: the seeding it does before
  * wiring reads and writes the same config file the installer reports on.
  */
-export { configPath, describeServer, readConfig, writeConfig } from "./config.js";
+export { configPath, describeServer, readConfig, writeConfig } from './config.js';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -67,7 +67,7 @@ export interface InstallContext {
 }
 
 /** What happened to one `mcp_config.json`. `skipped` means we were not asked to write it. */
-export type McpOutcome = "installed" | "preserved" | "skipped";
+export type McpOutcome = 'installed' | 'preserved' | 'skipped';
 
 export interface InstallResult {
   hooksPath: string;
@@ -80,8 +80,8 @@ export interface InstallResult {
   appMcp: McpOutcome;
   /** Antigravity 2.x's shared registry — `skipped` unless `sharedMcp` was asked for. */
   sharedMcp: McpOutcome;
-  skill: "installed" | "skipped";
-  rules: "installed" | "skipped";
+  skill: 'installed' | 'skipped';
+  rules: 'installed' | 'skipped';
 }
 
 export interface UninstallResult {
@@ -95,28 +95,30 @@ export interface UninstallResult {
 
 /** Absolute path of one of this package's executable wrappers. */
 export function binPath(pkgRoot: string, bin: PluginBin): string {
-  return join(pkgRoot, "bin", bin);
+  return join(pkgRoot, 'bin', bin);
 }
 
 /** A hook entry in Antigravity's flat style: a command string plus a timeout in seconds. */
 export function hookEntry(
   pkgRoot: string,
-  wiring: HookWiring
+  wiring: HookWiring,
 ): { command: string; timeout?: number } {
   return {
     command: `node "${binPath(pkgRoot, wiring.bin)}"`,
-    ...(wiring.timeout ? { timeout: wiring.timeout } : {})
+    ...(wiring.timeout ? { timeout: wiring.timeout } : {}),
   };
 }
 
 /** The stdio MCP server Antigravity spawns for the `hindsight_*` tools. */
-export function mcpServerEntry(
-  pkgRoot: string
-): { command: string; args: string[]; env: Record<string, string> } {
+export function mcpServerEntry(pkgRoot: string): {
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+} {
   return {
-    command: "node",
-    args: [binPath(pkgRoot, "mcp-server.js")],
-    env: { [MCP_HARNESS_ENV]: RUNTIME_HARNESS }
+    command: 'node',
+    args: [binPath(pkgRoot, 'mcp-server.js')],
+    env: { [MCP_HARNESS_ENV]: RUNTIME_HARNESS },
   };
 }
 
@@ -129,17 +131,17 @@ export function mcpServerEntry(
  * and anything else under the `hindsight` name is someone else's and must survive untouched.
  */
 export function isOurMcpEntry(entry: unknown): boolean {
-  if (!entry || typeof entry !== "object") return false;
+  if (!entry || typeof entry !== 'object') return false;
   const candidate = entry as { command?: unknown; args?: unknown };
-  if (candidate.command !== "node" || !Array.isArray(candidate.args)) return false;
+  if (candidate.command !== 'node' || !Array.isArray(candidate.args)) return false;
   const script: unknown = candidate.args[0];
-  if (typeof script !== "string") return false;
-  const parts = script.replaceAll("\\", "/").split("/").filter(Boolean);
-  if (parts.at(-1) !== "mcp-server.js") return false;
-  if (parts.at(-2) === "bin") return true;
+  if (typeof script !== 'string') return false;
+  const parts = script.replaceAll('\\', '/').split('/').filter(Boolean);
+  if (parts.at(-1) !== 'mcp-server.js') return false;
+  if (parts.at(-2) === 'bin') return true;
   return (
-    parts.at(-2) === "dist" &&
-    (parts.at(-3) === "coding-agents" || parts.at(-3) === "hindsight-coding-agents")
+    parts.at(-2) === 'dist' &&
+    (parts.at(-3) === 'coding-agents' || parts.at(-3) === 'hindsight-coding-agents')
   );
 }
 
@@ -152,25 +154,22 @@ export function install(ctx: InstallContext = {}): InstallResult {
   const appMcpPath = join(home, ...APP_MCP_CONFIG_PATH);
   const sharedMcpPath = join(home, ...SHARED_MCP_CONFIG_PATH);
   const pluginDir = join(home, ...PLUGIN_DIR);
-  const skillDir = join(pluginDir, "skills", SKILL_NAME);
-  const rulesDir = join(pluginDir, "rules");
+  const skillDir = join(pluginDir, 'skills', SKILL_NAME);
+  const rulesDir = join(pluginDir, 'rules');
 
   writeJson(hooksPath, mergeHooks(readJson(hooksPath), pkgRoot));
   log(`${HOST}: hooks merged into ${hooksPath}`);
 
   const appMcp = registerMcp(appMcpPath, pkgRoot, log);
-  const sharedMcp = ctx.sharedMcp ? registerMcp(sharedMcpPath, pkgRoot, log) : "skipped";
-  if (appMcp === "installed") log(`${HOST}: MCP server registered in ${appMcpPath}`);
-  if (sharedMcp === "installed") log(`${HOST}: MCP server registered in ${sharedMcpPath}`);
+  const sharedMcp = ctx.sharedMcp ? registerMcp(sharedMcpPath, pkgRoot, log) : 'skipped';
+  if (appMcp === 'installed') log(`${HOST}: MCP server registered in ${appMcpPath}`);
+  if (sharedMcp === 'installed') log(`${HOST}: MCP server registered in ${sharedMcpPath}`);
 
-  writeJson(join(pluginDir, "plugin.json"), pluginManifest(pkgRoot));
+  writeJson(join(pluginDir, 'plugin.json'), pluginManifest(pkgRoot));
 
-  const skill = copyDir(join(pkgRoot, "skills", SKILL_NAME), skillDir) ? "installed" : "skipped";
-  const rules = copyDir(join(pkgRoot, "rules"), rulesDir) ? "installed" : "skipped";
-  log(
-    `${HOST}: plugin bundle written to ${pluginDir}` +
-      ` (skill ${skill}, rules ${rules})`
-  );
+  const skill = copyDir(join(pkgRoot, 'skills', SKILL_NAME), skillDir) ? 'installed' : 'skipped';
+  const rules = copyDir(join(pkgRoot, 'rules'), rulesDir) ? 'installed' : 'skipped';
+  log(`${HOST}: plugin bundle written to ${pluginDir}` + ` (skill ${skill}, rules ${rules})`);
 
   return {
     hooksPath,
@@ -182,7 +181,7 @@ export function install(ctx: InstallContext = {}): InstallResult {
     appMcp,
     sharedMcp,
     skill,
-    rules
+    rules,
   };
 }
 
@@ -198,7 +197,7 @@ export function uninstall(ctx: InstallContext = {}): UninstallResult {
   if (existsSync(hooksPath)) {
     const hooks = readJson(hooksPath);
     const group = hooks[HOOK_NAME];
-    if (group && typeof group === "object") {
+    if (group && typeof group === 'object') {
       const events = group as JsonRecord;
       for (const wiring of HOOK_WIRING) {
         setOrDelete(events, wiring.event, stripOurs(events[wiring.event], wiring));
@@ -228,7 +227,7 @@ export function uninstall(ctx: InstallContext = {}): UninstallResult {
   log(
     pluginRemoved
       ? `${HOST}: hooks + MCP entry + plugin bundle removed`
-      : `${HOST}: hooks + MCP entry removed; ${pluginDir} left in place (not ours)`
+      : `${HOST}: hooks + MCP entry removed; ${pluginDir} left in place (not ours)`,
   );
 
   return { hooksPath, appMcpPath, sharedMcpPath, pluginDir, pluginRemoved };
@@ -243,14 +242,14 @@ function registerMcp(path: string, pkgRoot: string, log: (m: string) => void): M
   if (existing !== undefined && !isOurMcpEntry(existing)) {
     log(
       `${HOST}: existing "${MCP_SERVER_NAME}" MCP server in ${path} preserved ` +
-        `(Hindsight tools not registered)`
+        `(Hindsight tools not registered)`,
     );
-    return "preserved";
+    return 'preserved';
   }
 
   mcpConfig.mcpServers = { ...servers, [MCP_SERVER_NAME]: mcpServerEntry(pkgRoot) };
   writeJson(path, mcpConfig);
-  return "installed";
+  return 'installed';
 }
 
 /**
@@ -263,14 +262,14 @@ function registerMcp(path: string, pkgRoot: string, log: (m: string) => void): M
  * deliberately has no `hooks.json` or `mcp_config.json` to point at.
  */
 function pluginManifest(pkgRoot: string): JsonRecord {
-  const template = readJson(join(pkgRoot, "plugin.json"));
-  const pkg = readJson(join(pkgRoot, "package.json"));
+  const template = readJson(join(pkgRoot, 'plugin.json'));
+  const pkg = readJson(join(pkgRoot, 'package.json'));
   // `name` comes last on purpose: it has to agree with PLUGIN_DIR and with the check uninstall
   // makes before deleting the bundle, so the constant wins over whatever the template says.
   return {
     ...template,
     name: PLUGIN_NAME,
-    ...(typeof pkg.version === "string" ? { version: pkg.version } : {})
+    ...(typeof pkg.version === 'string' ? { version: pkg.version } : {}),
   };
 }
 
@@ -305,8 +304,8 @@ function stripOurs(value: unknown, wiring: HookWiring): unknown[] {
  * own.
  */
 function isOurHookEntry(entry: unknown, wiring: HookWiring): boolean {
-  const json = JSON.stringify(entry) ?? "";
-  return json.includes(HOOK_NAME) || json.replaceAll("\\\\", "/").includes(`/bin/${wiring.bin}`);
+  const json = JSON.stringify(entry) ?? '';
+  return json.includes(HOOK_NAME) || json.replaceAll('\\\\', '/').includes(`/bin/${wiring.bin}`);
 }
 
 function setOrDelete(target: JsonRecord, key: string, entries: unknown[]): void {
@@ -332,7 +331,7 @@ function copyDir(source: string, target: string): boolean {
  */
 function removePluginDir(pluginDir: string): boolean {
   if (!existsSync(pluginDir)) return true;
-  if (readJson(join(pluginDir, "plugin.json")).name !== PLUGIN_NAME) return false;
+  if (readJson(join(pluginDir, 'plugin.json')).name !== PLUGIN_NAME) return false;
   rmSync(pluginDir, { recursive: true, force: true });
   return true;
 }
@@ -340,8 +339,8 @@ function removePluginDir(pluginDir: string): boolean {
 /** Parse a JSON file into an object. Missing, unreadable or malformed reads as `{}`, never throws. */
 function readJson(path: string): JsonRecord {
   try {
-    const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+    const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
       ? (parsed as JsonRecord)
       : {};
   } catch {
@@ -357,12 +356,12 @@ function writeJson(path: string, value: JsonRecord): void {
 
 /** A plain object view of a nested value, so a scalar or missing key cannot corrupt a merge. */
 function record(value: unknown): JsonRecord {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as JsonRecord) : {};
 }
 
 /** The package root: this module is built into `dist/`, so the root is one level up. */
 function defaultPkgRoot(): string {
-  return join(dirname(fileURLToPath(import.meta.url)), "..");
+  return join(dirname(fileURLToPath(import.meta.url)), '..');
 }
 
 function noop(): void {

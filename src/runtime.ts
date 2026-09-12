@@ -6,10 +6,10 @@
  * through Node's own resolver so the runtime is found wherever the package manager put it —
  * alongside this package, hoisted to a workspace root, or in a global install.
  */
-import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
-import { pathToFileURL } from "node:url";
-import { RUNTIME_PACKAGE, type RuntimeEntry } from "./host.js";
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { RUNTIME_PACKAGE, type RuntimeEntry } from './host.js';
 
 const require = createRequire(import.meta.url);
 
@@ -21,9 +21,9 @@ export class RuntimeUnavailableError extends Error {
     super(
       `Hindsight runtime not available: could not resolve ${RUNTIME_PACKAGE}/dist/${entry}. ` +
         `Reinstall the plugin so its dependencies are present.`,
-      options
+      options,
     );
-    this.name = "RuntimeUnavailableError";
+    this.name = 'RuntimeUnavailableError';
     this.entry = entry;
   }
 }
@@ -33,13 +33,13 @@ export function runtimeRoot(): string {
   try {
     return dirname(require.resolve(`${RUNTIME_PACKAGE}/package.json`));
   } catch (cause) {
-    throw new RuntimeUnavailableError("mcp-server.js", { cause });
+    throw new RuntimeUnavailableError('mcp-server.js', { cause });
   }
 }
 
 /** Absolute path of the runtime's `dist` directory, where every entry point lives. */
 export function runtimeDist(): string {
-  return join(runtimeRoot(), "dist");
+  return join(runtimeRoot(), 'dist');
 }
 
 /** Absolute path of one runtime entry point. Throws {@link RuntimeUnavailableError} if missing. */
@@ -55,7 +55,7 @@ export function resolveRuntimeEntry(entry: RuntimeEntry): string {
 export function runtimeVersion(): string | undefined {
   try {
     const pkg = require(`${RUNTIME_PACKAGE}/package.json`) as { version?: unknown };
-    return typeof pkg.version === "string" ? pkg.version : undefined;
+    return typeof pkg.version === 'string' ? pkg.version : undefined;
   } catch {
     return undefined;
   }

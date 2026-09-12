@@ -32,24 +32,24 @@ Then **restart the Antigravity app**.
 
 ### What the installer writes
 
-| path                                               | what is added                                                         |
-| -------------------------------------------------- | --------------------------------------------------------------------- |
-| `~/.gemini/config/hooks.json`                      | the `PreInvocation` and `Stop` hooks, grouped under `coding-agents`    |
-| `~/.gemini/antigravity/mcp_config.json`            | `mcpServers.hindsight` — the app's own MCP registry                    |
-| `~/.gemini/config/plugins/hindsight/plugin.json`   | the plugin manifest that makes the bundle discoverable                 |
-| `~/.gemini/config/plugins/hindsight/skills/…`      | the companion skill                                                    |
-| `~/.gemini/config/plugins/hindsight/rules/…`       | the always-on memory rules                                             |
+| path                                             | what is added                                                       |
+| ------------------------------------------------ | ------------------------------------------------------------------- |
+| `~/.gemini/config/hooks.json`                    | the `PreInvocation` and `Stop` hooks, grouped under `coding-agents` |
+| `~/.gemini/antigravity/mcp_config.json`          | `mcpServers.hindsight` — the app's own MCP registry                 |
+| `~/.gemini/config/plugins/hindsight/plugin.json` | the plugin manifest that makes the bundle discoverable              |
+| `~/.gemini/config/plugins/hindsight/skills/…`    | the companion skill                                                 |
+| `~/.gemini/config/plugins/hindsight/rules/…`     | the always-on memory rules                                          |
 
 Three targets rather than one, because Antigravity splits them that way:
 
 - **Hooks** are host-wide. `~/.gemini/config/hooks.json` is the global hooks file every Antigravity
   flavour reads — the app, the IDE and the CLI. The app has no hooks file of its own.
 - **MCP** is per product. `~/.gemini/antigravity/mcp_config.json` is the file the app's
-  *Settings → Customizations → Open MCP Config* button opens, and the one its MCP server list reads.
+  _Settings → Customizations → Open MCP Config_ button opens, and the one its MCP server list reads.
 - **Skills and rules** ride in a **plugin bundle**, the app's native way to package them.
 
 The bundle deliberately contains **no `hooks.json` and no `mcp_config.json`**, even though the plugin
-format allows both: a plugin-level copy would be a *second* registration of the same command, and two
+format allows both: a plugin-level copy would be a _second_ registration of the same command, and two
 `PreInvocation` entries inject memory twice and retain the turn twice. Anything that spawns a process
 is registered exactly once, at host level.
 
@@ -126,11 +126,11 @@ needs no restart.
 
 ### Where memory lives
 
-| `serverMode`  | what runs                                 | needs                                     |
-| ------------- | ----------------------------------------- | ----------------------------------------- |
-| `cloud`       | Hindsight Cloud (default)                 | an API token                              |
-| `self-hosted` | a Hindsight server you already run        | its `apiUrl`                              |
-| `daemon`      | a local `hindsight-embed` on this machine | `uv` on PATH + an LLM key for extraction  |
+| `serverMode`  | what runs                                 | needs                                    |
+| ------------- | ----------------------------------------- | ---------------------------------------- |
+| `cloud`       | Hindsight Cloud (default)                 | an API token                             |
+| `self-hosted` | a Hindsight server you already run        | its `apiUrl`                             |
+| `daemon`      | a local `hindsight-embed` on this machine | `uv` on PATH + an LLM key for extraction |
 
 In `daemon` mode the runtime starts `hindsight-embed` on `127.0.0.1:9077` (`apiPort`) and adopts a
 server already on the port rather than restarting it. The first cold start downloads the daemon and
@@ -154,19 +154,19 @@ that starts first simply has no memory for a turn or two.
 }
 ```
 
-| field              | default                        | meaning                                                                       |
-| ------------------ | ------------------------------ | ----------------------------------------------------------------------------- |
-| `apiUrl`           | Hindsight Cloud                | API base URL; set it for a self-hosted server                                  |
-| `apiToken`         | —                              | bearer token; re-read on rejection, so rotation needs no restart               |
-| `bankIdTemplate`   | `"coding-agent::{gitProject}"` | dynamic bank id; `{harness}`, `{project}` and `{gitProject}` are available     |
-| `mapPathToBank`    | —                              | absolute path → bank, longest prefix wins                                      |
-| `banks.<bankId>`   | —                              | per-repo override of any behavioural field, keyed by the resolved bank id      |
-| `disabled`         | `false`                        | hard off-switch — globally, per harness, or per bank                           |
-| `optInOnly`        | `false`                        | remember nothing except under `optInPaths`                                     |
-| `gitIngest`        | `"message"`                    | `"message"` \| `"full"` (messages + per-commit diffs) \| `"none"`              |
-| `autoReflect`      | `true`                         | inject the session-start reflect; `false` makes reflect tool-only              |
-| `retainSessions`   | `true`                         | session write-back at `Stop`                                                   |
-| `logLevel`         | `"info"`                       | verbosity of `~/.hindsight/coding-agents-logs/plugin.log`                      |
+| field            | default                        | meaning                                                                    |
+| ---------------- | ------------------------------ | -------------------------------------------------------------------------- |
+| `apiUrl`         | Hindsight Cloud                | API base URL; set it for a self-hosted server                              |
+| `apiToken`       | —                              | bearer token; re-read on rejection, so rotation needs no restart           |
+| `bankIdTemplate` | `"coding-agent::{gitProject}"` | dynamic bank id; `{harness}`, `{project}` and `{gitProject}` are available |
+| `mapPathToBank`  | —                              | absolute path → bank, longest prefix wins                                  |
+| `banks.<bankId>` | —                              | per-repo override of any behavioural field, keyed by the resolved bank id  |
+| `disabled`       | `false`                        | hard off-switch — globally, per harness, or per bank                       |
+| `optInOnly`      | `false`                        | remember nothing except under `optInPaths`                                 |
+| `gitIngest`      | `"message"`                    | `"message"` \| `"full"` (messages + per-commit diffs) \| `"none"`          |
+| `autoReflect`    | `true`                         | inject the session-start reflect; `false` makes reflect tool-only          |
+| `retainSessions` | `true`                         | session write-back at `Stop`                                               |
+| `logLevel`       | `"info"`                       | verbosity of `~/.hindsight/coding-agents-logs/plugin.log`                  |
 
 The full reference — opt-in policy, knowledge-page refresh cadence, observation scopes, daemon
 settings, provenance tags — lives in
@@ -181,16 +181,16 @@ The stdio MCP server registered as `hindsight` is the runtime's, started with
 `HINDSIGHT_MCP_HARNESS=antigravity-cli` — see [Harness naming](#harness-naming) for why that value
 is not `antigravity`:
 
-| tool                              | use                                                                  |
-| --------------------------------- | -------------------------------------------------------------------- |
-| `hindsight_search_knowledge_pages` | first stop for project questions — fast server-side hybrid search    |
-| `hindsight_read_knowledge_page`    | read one page in full                                                |
-| `hindsight_list_knowledge_pages`   | the page roster for this bank                                        |
-| `hindsight_reflect`                | deep synthesis over the whole memory; slower, use deliberately       |
-| `hindsight_ingest_document`        | store an external document, durable finding, or a correction         |
-| `hindsight_capture_initiative`     | record an agreed plan, and update it via `relates_to_page_id`        |
-| `hindsight_diagnose`               | what the config file says vs. what the running client is using       |
-| `hindsight_sync_status`            | is the seeded memory queryable yet (`"synced": true`)                |
+| tool                               | use                                                               |
+| ---------------------------------- | ----------------------------------------------------------------- |
+| `hindsight_search_knowledge_pages` | first stop for project questions — fast server-side hybrid search |
+| `hindsight_read_knowledge_page`    | read one page in full                                             |
+| `hindsight_list_knowledge_pages`   | the page roster for this bank                                     |
+| `hindsight_reflect`                | deep synthesis over the whole memory; slower, use deliberately    |
+| `hindsight_ingest_document`        | store an external document, durable finding, or a correction      |
+| `hindsight_capture_initiative`     | record an agreed plan, and update it via `relates_to_page_id`     |
+| `hindsight_diagnose`               | what the config file says vs. what the running client is using    |
+| `hindsight_sync_status`            | is the seeded memory queryable yet (`"synced": true`)             |
 
 ---
 
@@ -223,7 +223,7 @@ nothing to render a command's stdout into. `hindsight_diagnose` reports the reso
 The runtime stamps everything it retains with a harness id, and for Antigravity that id is
 **`antigravity-cli`** — including in the app.
 
-That is upstream's name for its Antigravity *integration*, not a claim about which surface is
+That is upstream's name for its Antigravity _integration_, not a claim about which surface is
 running: `dist/antigravity-hook.js` and `dist/antigravity-stop-hook.js` call
 `runHarnessPrompt("antigravity-cli")` with no way to override it. The id selects the
 `harnesses.<id>` config section and feeds `{harness}` in `bankIdTemplate`, so the MCP server has to

@@ -27,7 +27,7 @@
  */
 
 /** The host: the Antigravity desktop application. Used in log lines and diagnostics. */
-export const HOST = "antigravity";
+export const HOST = 'antigravity';
 
 /**
  * The harness id the *runtime* stamps on everything it retains — not a statement about which
@@ -46,10 +46,10 @@ export const HOST = "antigravity";
  * payload — so one runtime harness correctly serves both. Only the *installation* differs, and that
  * is what the rest of this file describes.
  */
-export const RUNTIME_HARNESS = "antigravity-cli";
+export const RUNTIME_HARNESS = 'antigravity-cli';
 
 /** The upstream package that provides the memory runtime. This plugin never reimplements it. */
-export const RUNTIME_PACKAGE = "@vectorize-io/hindsight-coding-agents";
+export const RUNTIME_PACKAGE = '@vectorize-io/hindsight-coding-agents';
 
 /**
  * The hook name our entries are grouped under in `hooks.json`. Antigravity's hooks file maps a hook
@@ -57,19 +57,19 @@ export const RUNTIME_PACKAGE = "@vectorize-io/hindsight-coding-agents";
  * installer groups under the same name, so an install from either side replaces the other's entries
  * rather than adding a second copy of the same command.
  */
-export const HOOK_NAME = "coding-agents";
+export const HOOK_NAME = 'coding-agents';
 
 /** Directory name of the plugin bundle, inside Antigravity's plugins root. */
-export const PLUGIN_NAME = "hindsight";
+export const PLUGIN_NAME = 'hindsight';
 
 /** Directory name of the companion skill, inside the bundle's `skills/`. */
-export const SKILL_NAME = "hindsight-coding-agent";
+export const SKILL_NAME = 'hindsight-coding-agent';
 
 /** Name the stdio MCP server registers under in the app's `mcp_config.json`. */
-export const MCP_SERVER_NAME = "hindsight";
+export const MCP_SERVER_NAME = 'hindsight';
 
 /** Env var the runtime's MCP server reads to know which harness is asking. */
-export const MCP_HARNESS_ENV = "HINDSIGHT_MCP_HARNESS";
+export const MCP_HARNESS_ENV = 'HINDSIGHT_MCP_HARNESS';
 
 /**
  * Bundled runtime entry points this plugin delegates to.
@@ -79,14 +79,14 @@ export const MCP_HARNESS_ENV = "HINDSIGHT_MCP_HARNESS";
  * has nothing to render a command's stdout into, so shipping a status-line wrapper for it would be
  * wiring with no socket to plug into.
  */
-export type RuntimeEntry = "antigravity-hook.js" | "antigravity-stop-hook.js" | "mcp-server.js";
+export type RuntimeEntry = 'antigravity-hook.js' | 'antigravity-stop-hook.js' | 'mcp-server.js';
 
 /** Executable wrappers this package ships, one per runtime entry point. */
-export type PluginBin = "pre-invocation.js" | "stop-hook.js" | "mcp-server.js";
+export type PluginBin = 'pre-invocation.js' | 'stop-hook.js' | 'mcp-server.js';
 
 export interface HookWiring {
   /** Antigravity lifecycle event. */
-  readonly event: "PreInvocation" | "Stop";
+  readonly event: 'PreInvocation' | 'Stop';
   /** Runtime entry point the wrapper delegates to. */
   readonly entry: RuntimeEntry;
   /** Wrapper in this package's `bin/` that the host actually spawns. */
@@ -102,17 +102,17 @@ export interface HookWiring {
  */
 export const HOOK_WIRING: readonly HookWiring[] = [
   {
-    event: "PreInvocation",
-    entry: "antigravity-hook.js",
-    bin: "pre-invocation.js",
-    timeout: 30
+    event: 'PreInvocation',
+    entry: 'antigravity-hook.js',
+    bin: 'pre-invocation.js',
+    timeout: 30,
   },
   {
-    event: "Stop",
-    entry: "antigravity-stop-hook.js",
-    bin: "stop-hook.js",
-    timeout: 30
-  }
+    event: 'Stop',
+    entry: 'antigravity-stop-hook.js',
+    bin: 'stop-hook.js',
+    timeout: 30,
+  },
 ];
 
 /**
@@ -121,13 +121,13 @@ export const HOOK_WIRING: readonly HookWiring[] = [
  * Note `config/`, not `antigravity/`: hooks are host-wide, not per-product. The app has no hooks
  * file of its own.
  */
-export const HOOKS_CONFIG_PATH = [".gemini", "config", "hooks.json"] as const;
+export const HOOKS_CONFIG_PATH = ['.gemini', 'config', 'hooks.json'] as const;
 
 /**
  * The desktop app's own MCP registry — the file behind its "Open MCP Config" button, and the one
  * every Antigravity app setup guide names. This is the primary MCP target.
  */
-export const APP_MCP_CONFIG_PATH = [".gemini", "antigravity", "mcp_config.json"] as const;
+export const APP_MCP_CONFIG_PATH = ['.gemini', 'antigravity', 'mcp_config.json'] as const;
 
 /**
  * The shared MCP registry Antigravity 2.x reads across the app, the IDE, the CLI and the SDK.
@@ -137,7 +137,7 @@ export const APP_MCP_CONFIG_PATH = [".gemini", "antigravity", "mcp_config.json"]
  * server listed twice. Uninstall cleans both regardless, so a user who opted in once is not left
  * with a stale entry.
  */
-export const SHARED_MCP_CONFIG_PATH = [".gemini", "config", "mcp_config.json"] as const;
+export const SHARED_MCP_CONFIG_PATH = ['.gemini', 'config', 'mcp_config.json'] as const;
 
 /** The plugin bundle's directory: Antigravity's global plugins root, namespaced by plugin name. */
-export const PLUGIN_DIR = [".gemini", "config", "plugins", PLUGIN_NAME] as const;
+export const PLUGIN_DIR = ['.gemini', 'config', 'plugins', PLUGIN_NAME] as const;

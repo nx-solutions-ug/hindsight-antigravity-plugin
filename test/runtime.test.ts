@@ -1,23 +1,23 @@
-import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { isAbsolute, join } from "node:path";
-import { RUNTIME_PACKAGE, type RuntimeEntry } from "../src/host.js";
+import { afterAll, describe, expect, test } from 'bun:test';
+import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { isAbsolute, join } from 'node:path';
+import { RUNTIME_PACKAGE, type RuntimeEntry } from '../src/host.js';
 import {
   RuntimeUnavailableError,
   resolveRuntimeEntry,
   runRuntimeEntry,
   runtimeDist,
   runtimeRoot,
-  runtimeVersion
-} from "../src/runtime.js";
+  runtimeVersion,
+} from '../src/runtime.js';
 
-const repoRoot = join(import.meta.dir, "..");
+const repoRoot = join(import.meta.dir, '..');
 
 /** Every entry point the plugin delegates to. Nothing here is executed — only located. */
 const ENTRIES: readonly RuntimeEntry[] = [
-  "antigravity-hook.js",
-  "antigravity-stop-hook.js",
-  "mcp-server.js"
+  'antigravity-hook.js',
+  'antigravity-stop-hook.js',
+  'mcp-server.js',
 ];
 
 /**
@@ -37,7 +37,7 @@ const runtimeInstalled = (() => {
 const whenInstalled = runtimeInstalled ? test : test.skip;
 
 function declaredRuntimeRange(): string | undefined {
-  const pkg = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as {
+  const pkg = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as {
     dependencies?: Record<string, string>;
   };
   return pkg.dependencies?.[RUNTIME_PACKAGE];
@@ -47,8 +47,8 @@ function declaredRuntimeRange(): string | undefined {
 function satisfies(version: string, range: string): boolean {
   const parse = (value: string): number[] =>
     value
-      .replace(/^[v^~>=<\s]+/, "")
-      .split(".")
+      .replace(/^[v^~>=<\s]+/, '')
+      .split('.')
       .map((part) => Number.parseInt(part, 10));
 
   const [vMajor = 0, vMinor = 0, vPatch = 0] = parse(version);
@@ -59,23 +59,23 @@ function satisfies(version: string, range: string): boolean {
     (vMajor === rMajor && (vMinor > rMinor || (vMinor === rMinor && vPatch >= rPatch)));
   if (!atLeast) return false;
 
-  if (range.startsWith("^")) {
+  if (range.startsWith('^')) {
     // npm caret: 0.x pins the minor, everything else pins the major.
     return rMajor === 0 ? vMajor === 0 && vMinor === rMinor : vMajor === rMajor;
   }
-  if (range.startsWith("~")) return vMajor === rMajor && vMinor === rMinor;
+  if (range.startsWith('~')) return vMajor === rMajor && vMinor === rMinor;
   return vMajor === rMajor && vMinor === rMinor && vPatch === rPatch;
 }
 
-describe("Runtime resolution", () => {
-  whenInstalled("runtimeRoot and runtimeDist point at the installed runtime package", () => {
+describe('Runtime resolution', () => {
+  whenInstalled('runtimeRoot and runtimeDist point at the installed runtime package', () => {
     const root = runtimeRoot();
     expect(isAbsolute(root)).toBe(true);
     expect(statSync(root).isDirectory()).toBe(true);
-    expect(root.replaceAll("\\", "/")).toContain("hindsight-coding-agents");
+    expect(root.replaceAll('\\', '/')).toContain('hindsight-coding-agents');
 
     const dist = runtimeDist();
-    expect(dist).toBe(join(root, "dist"));
+    expect(dist).toBe(join(root, 'dist'));
     expect(statSync(dist).isDirectory()).toBe(true);
   });
 
@@ -85,16 +85,16 @@ describe("Runtime resolution", () => {
       expect(isAbsolute(resolved)).toBe(true);
       expect(existsSync(resolved)).toBe(true);
       expect(statSync(resolved).isFile()).toBe(true);
-      expect(resolved.replaceAll("\\", "/").endsWith(`/dist/${entry}`)).toBe(true);
+      expect(resolved.replaceAll('\\', '/').endsWith(`/dist/${entry}`)).toBe(true);
     });
   }
 
-  whenInstalled("resolveRuntimeEntry returns a distinct path per entry", () => {
+  whenInstalled('resolveRuntimeEntry returns a distinct path per entry', () => {
     const resolved = new Set(ENTRIES.map((entry) => resolveRuntimeEntry(entry)));
     expect(resolved.size).toBe(ENTRIES.length);
   });
 
-  whenInstalled("runtimeVersion satisfies the range package.json declares", () => {
+  whenInstalled('runtimeVersion satisfies the range package.json declares', () => {
     const range = declaredRuntimeRange();
     expect(range).toBeDefined();
 
@@ -105,23 +105,23 @@ describe("Runtime resolution", () => {
   });
 });
 
-describe("RuntimeUnavailableError", () => {
-  test("names the entry it could not resolve", () => {
-    const error = new RuntimeUnavailableError("antigravity-hook.js");
+describe('RuntimeUnavailableError', () => {
+  test('names the entry it could not resolve', () => {
+    const error = new RuntimeUnavailableError('antigravity-hook.js');
 
     expect(error).toBeInstanceOf(Error);
-    expect(error.name).toBe("RuntimeUnavailableError");
-    expect(error.entry).toBe("antigravity-hook.js");
-    expect(error.message).toContain("antigravity-hook.js");
+    expect(error.name).toBe('RuntimeUnavailableError');
+    expect(error.entry).toBe('antigravity-hook.js');
+    expect(error.message).toContain('antigravity-hook.js');
     expect(error.message).toContain(RUNTIME_PACKAGE);
   });
 
-  test("keeps the underlying resolution failure as its cause", () => {
-    const cause = new Error("MODULE_NOT_FOUND");
-    const error = new RuntimeUnavailableError("mcp-server.js", { cause });
+  test('keeps the underlying resolution failure as its cause', () => {
+    const cause = new Error('MODULE_NOT_FOUND');
+    const error = new RuntimeUnavailableError('mcp-server.js', { cause });
 
     expect(error.cause).toBe(cause);
-    expect(error.entry).toBe("mcp-server.js");
+    expect(error.entry).toBe('mcp-server.js');
   });
 });
 
@@ -131,23 +131,20 @@ describe("RuntimeUnavailableError", () => {
  * substitution itself: anything that reads `process.argv` afterwards — the runtime's own later
  * calls included — has to see what the host actually spawned.
  */
-describe("runRuntimeEntry argv substitution", () => {
+describe('runRuntimeEntry argv substitution', () => {
   /**
    * An inert module placed where the resolver looks, so the *resolving* path can be exercised
    * without importing (and thereby starting) a real entry point. Skipped if it cannot be created.
    */
-  const probeName = "__hindsight-argv-probe.test.mjs";
+  const probeName = '__hindsight-argv-probe.test.mjs';
   const probeEntry = probeName as RuntimeEntry;
-  const probePath = runtimeInstalled ? join(runtimeDist(), probeName) : "";
-  const probeGlobal = "__hindsightArgvProbe";
+  const probePath = runtimeInstalled ? join(runtimeDist(), probeName) : '';
+  const probeGlobal = '__hindsightArgvProbe';
 
   const probeReady = (() => {
     if (!runtimeInstalled) return false;
     try {
-      writeFileSync(
-        probePath,
-        `globalThis[${JSON.stringify(probeGlobal)}] = process.argv[1];\n`
-      );
+      writeFileSync(probePath, `globalThis[${JSON.stringify(probeGlobal)}] = process.argv[1];\n`);
       return existsSync(resolveRuntimeEntry(probeEntry));
     } catch {
       return false;
@@ -164,7 +161,7 @@ describe("runRuntimeEntry argv substitution", () => {
     return (globalThis as Record<string, unknown>)[probeGlobal];
   }
 
-  whenProbed("the imported module sees its own path as argv[1]", async () => {
+  whenProbed('the imported module sees its own path as argv[1]', async () => {
     const spawnedAs = process.argv[1];
 
     await runRuntimeEntry(probeEntry);
@@ -173,7 +170,7 @@ describe("runRuntimeEntry argv substitution", () => {
     expect(process.argv[1]).toBe(spawnedAs);
   });
 
-  whenProbed("argv[1] is restored after the entry resolves", async () => {
+  whenProbed('argv[1] is restored after the entry resolves', async () => {
     const argvBefore = [...process.argv];
 
     await runRuntimeEntry(probeEntry);
@@ -181,7 +178,7 @@ describe("runRuntimeEntry argv substitution", () => {
     expect(process.argv).toEqual(argvBefore);
   });
 
-  whenProbed("an absent argv[1] is spliced back out rather than left behind", async () => {
+  whenProbed('an absent argv[1] is spliced back out rather than left behind', async () => {
     const argvBefore = [...process.argv];
     process.argv.splice(1, process.argv.length - 1);
     try {
@@ -194,20 +191,20 @@ describe("runRuntimeEntry argv substitution", () => {
     }
   });
 
-  test("argv is untouched when the entry cannot be resolved", async () => {
+  test('argv is untouched when the entry cannot be resolved', async () => {
     const argvBefore = [...process.argv];
-    const missing = "no-such-entry.js" as RuntimeEntry;
+    const missing = 'no-such-entry.js' as RuntimeEntry;
 
     await expect(runRuntimeEntry(missing)).rejects.toBeInstanceOf(RuntimeUnavailableError);
 
     expect(process.argv).toEqual(argvBefore);
   });
 
-  whenProbed("resolves mcp-server.js to the path its own self-start guard compares against", () => {
-    const resolved = resolveRuntimeEntry("mcp-server.js");
+  whenProbed('resolves mcp-server.js to the path its own self-start guard compares against', () => {
+    const resolved = resolveRuntimeEntry('mcp-server.js');
 
     expect(existsSync(resolved)).toBe(true);
-    expect(resolved.replaceAll("\\", "/").endsWith("/dist/mcp-server.js")).toBe(true);
-    expect(resolved).toBe(join(runtimeDist(), "mcp-server.js"));
+    expect(resolved.replaceAll('\\', '/').endsWith('/dist/mcp-server.js')).toBe(true);
+    expect(resolved).toBe(join(runtimeDist(), 'mcp-server.js'));
   });
 });

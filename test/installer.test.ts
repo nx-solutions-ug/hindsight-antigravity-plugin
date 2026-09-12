@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import {
   APP_MCP_CONFIG_PATH,
   HOOKS_CONFIG_PATH,
@@ -12,8 +12,8 @@ import {
   PLUGIN_DIR,
   PLUGIN_NAME,
   SHARED_MCP_CONFIG_PATH,
-  SKILL_NAME
-} from "../src/host.js";
+  SKILL_NAME,
+} from '../src/host.js';
 import {
   binPath,
   hookEntry,
@@ -21,37 +21,37 @@ import {
   isOurMcpEntry,
   mcpServerEntry,
   uninstall,
-  type InstallContext
-} from "../src/installer.js";
+  type InstallContext,
+} from '../src/installer.js';
 
 let home: string;
 let pkgRoot: string;
 let logged: string[];
 
-const PKG_VERSION = "9.9.9";
+const PKG_VERSION = '9.9.9';
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), "hindsight-home-"));
-  pkgRoot = mkdtempSync(join(tmpdir(), "hindsight-pkg-"));
+  home = mkdtempSync(join(tmpdir(), 'hindsight-home-'));
+  pkgRoot = mkdtempSync(join(tmpdir(), 'hindsight-pkg-'));
   logged = [];
 
   // A plausible package layout: the wrappers the host spawns, the manifest template, and the
   // declarative assets the bundle carries.
-  mkdirSync(join(pkgRoot, "bin"), { recursive: true });
-  for (const bin of ["pre-invocation.js", "stop-hook.js", "mcp-server.js"]) {
-    writeFileSync(join(pkgRoot, "bin", bin), "#!/usr/bin/env node\n");
+  mkdirSync(join(pkgRoot, 'bin'), { recursive: true });
+  for (const bin of ['pre-invocation.js', 'stop-hook.js', 'mcp-server.js']) {
+    writeFileSync(join(pkgRoot, 'bin', bin), '#!/usr/bin/env node\n');
   }
-  mkdirSync(join(pkgRoot, "skills", SKILL_NAME), { recursive: true });
-  writeFileSync(join(pkgRoot, "skills", SKILL_NAME, "SKILL.md"), "# Hindsight\n");
-  mkdirSync(join(pkgRoot, "rules"), { recursive: true });
-  writeFileSync(join(pkgRoot, "rules", "AGENTS.md"), "# Memory rules\n");
+  mkdirSync(join(pkgRoot, 'skills', SKILL_NAME), { recursive: true });
+  writeFileSync(join(pkgRoot, 'skills', SKILL_NAME, 'SKILL.md'), '# Hindsight\n');
+  mkdirSync(join(pkgRoot, 'rules'), { recursive: true });
+  writeFileSync(join(pkgRoot, 'rules', 'AGENTS.md'), '# Memory rules\n');
   writeFileSync(
-    join(pkgRoot, "plugin.json"),
-    `${JSON.stringify({ name: PLUGIN_NAME, description: "memory" }, null, 2)}\n`
+    join(pkgRoot, 'plugin.json'),
+    `${JSON.stringify({ name: PLUGIN_NAME, description: 'memory' }, null, 2)}\n`,
   );
   writeFileSync(
-    join(pkgRoot, "package.json"),
-    `${JSON.stringify({ name: "@chronova/x", version: PKG_VERSION }, null, 2)}\n`
+    join(pkgRoot, 'package.json'),
+    `${JSON.stringify({ name: '@chronova/x', version: PKG_VERSION }, null, 2)}\n`,
   );
 });
 
@@ -64,18 +64,18 @@ const ctx = (extra: InstallContext = {}): InstallContext => ({
   home,
   pkgRoot,
   log: (message) => void logged.push(message),
-  ...extra
+  ...extra,
 });
 
 const hooksPath = (): string => join(home, ...HOOKS_CONFIG_PATH);
 const appMcpPath = (): string => join(home, ...APP_MCP_CONFIG_PATH);
 const sharedMcpPath = (): string => join(home, ...SHARED_MCP_CONFIG_PATH);
 const pluginDir = (): string => join(home, ...PLUGIN_DIR);
-const skillDir = (): string => join(pluginDir(), "skills", SKILL_NAME);
-const rulesDir = (): string => join(pluginDir(), "rules");
+const skillDir = (): string => join(pluginDir(), 'skills', SKILL_NAME);
+const rulesDir = (): string => join(pluginDir(), 'rules');
 
 function readJsonFile(path: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
+  const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
   expect(parsed).toBeObject();
   return parsed as Record<string, unknown>;
 }
@@ -107,49 +107,49 @@ function servers(path: string): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-const FOREIGN_HOOK = { command: "node /opt/other-tool/pre.js", timeout: 5 };
-const FOREIGN_MCP = { command: "npx", args: ["-y", "some-other-hindsight"] };
+const FOREIGN_HOOK = { command: 'node /opt/other-tool/pre.js', timeout: 5 };
+const FOREIGN_MCP = { command: 'npx', args: ['-y', 'some-other-hindsight'] };
 
-describe("Installer path helpers", () => {
+describe('Installer path helpers', () => {
   test("binPath points at this package's wrapper", () => {
-    expect(binPath("/pkg", "pre-invocation.js")).toBe(join("/pkg", "bin", "pre-invocation.js"));
+    expect(binPath('/pkg', 'pre-invocation.js')).toBe(join('/pkg', 'bin', 'pre-invocation.js'));
   });
 
   test("hookEntry is Antigravity's flat style, with the timeout in seconds", () => {
     for (const wiring of HOOK_WIRING) {
-      expect(hookEntry("/pkg", wiring)).toEqual({
-        command: `node "${join("/pkg", "bin", wiring.bin)}"`,
-        timeout: 30
+      expect(hookEntry('/pkg', wiring)).toEqual({
+        command: `node "${join('/pkg', 'bin', wiring.bin)}"`,
+        timeout: 30,
       });
     }
   });
 
   test("mcpServerEntry spawns our wrapper and names the runtime's harness", () => {
-    expect(mcpServerEntry("/pkg")).toEqual({
-      command: "node",
-      args: [join("/pkg", "bin", "mcp-server.js")],
-      env: { [MCP_HARNESS_ENV]: "antigravity-cli" }
+    expect(mcpServerEntry('/pkg')).toEqual({
+      command: 'node',
+      args: [join('/pkg', 'bin', 'mcp-server.js')],
+      env: { [MCP_HARNESS_ENV]: 'antigravity-cli' },
     });
   });
 
   test("isOurMcpEntry recognises our wrapper and upstream's own entry, nothing else", () => {
-    expect(isOurMcpEntry(mcpServerEntry("/pkg"))).toBe(true);
+    expect(isOurMcpEntry(mcpServerEntry('/pkg'))).toBe(true);
     expect(
       isOurMcpEntry({
-        command: "node",
-        args: ["/usr/lib/node_modules/@vectorize-io/hindsight-coding-agents/dist/mcp-server.js"]
-      })
+        command: 'node',
+        args: ['/usr/lib/node_modules/@vectorize-io/hindsight-coding-agents/dist/mcp-server.js'],
+      }),
     ).toBe(true);
 
     expect(isOurMcpEntry(FOREIGN_MCP)).toBe(false);
-    expect(isOurMcpEntry({ command: "node", args: ["/opt/other/mcp-server.js"] })).toBe(false);
-    expect(isOurMcpEntry({ command: "node" })).toBe(false);
+    expect(isOurMcpEntry({ command: 'node', args: ['/opt/other/mcp-server.js'] })).toBe(false);
+    expect(isOurMcpEntry({ command: 'node' })).toBe(false);
     expect(isOurMcpEntry(null)).toBe(false);
-    expect(isOurMcpEntry("node bin/mcp-server.js")).toBe(false);
+    expect(isOurMcpEntry('node bin/mcp-server.js')).toBe(false);
   });
 });
 
-describe("install", () => {
+describe('install', () => {
   test("reports every path it wrote, and writes the app's MCP registry by default", () => {
     const result = install(ctx());
 
@@ -160,10 +160,10 @@ describe("install", () => {
       pluginDir: pluginDir(),
       skillDir: skillDir(),
       rulesDir: rulesDir(),
-      appMcp: "installed",
-      sharedMcp: "skipped",
-      skill: "installed",
-      rules: "installed"
+      appMcp: 'installed',
+      sharedMcp: 'skipped',
+      skill: 'installed',
+      rules: 'installed',
     });
     for (const path of [hooksPath(), appMcpPath()]) expect(existsSync(path)).toBe(true);
   });
@@ -176,10 +176,10 @@ describe("install", () => {
     expect(existsSync(sharedMcpPath())).toBe(false);
   });
 
-  test("writes the shared 2.x registry only when asked", () => {
+  test('writes the shared 2.x registry only when asked', () => {
     const result = install(ctx({ sharedMcp: true }));
 
-    expect(result.sharedMcp).toBe("installed");
+    expect(result.sharedMcp).toBe('installed');
     expect(servers(sharedMcpPath())[MCP_SERVER_NAME]).toEqual(mcpServerEntry(pkgRoot));
     expect(servers(appMcpPath())[MCP_SERVER_NAME]).toEqual(mcpServerEntry(pkgRoot));
   });
@@ -187,10 +187,10 @@ describe("install", () => {
   test("never writes anything into the Antigravity CLI's tree", () => {
     install(ctx({ sharedMcp: true }));
 
-    expect(existsSync(join(home, ".gemini", "antigravity-cli"))).toBe(false);
+    expect(existsSync(join(home, '.gemini', 'antigravity-cli'))).toBe(false);
   });
 
-  test("merges one hook entry per wired event, under the shared hook name", () => {
+  test('merges one hook entry per wired event, under the shared hook name', () => {
     install(ctx());
     const group = hookGroup();
 
@@ -198,89 +198,89 @@ describe("install", () => {
       const entries = entriesAt(group, wiring.event);
       expect(entries).toHaveLength(1);
       expect(entries[0]).toEqual(hookEntry(pkgRoot, wiring));
-      expect(entries[0]?.command).toBe(`node "${join(pkgRoot, "bin", wiring.bin)}"`);
+      expect(entries[0]?.command).toBe(`node "${join(pkgRoot, 'bin', wiring.bin)}"`);
       expect(entries[0]?.timeout).toBe(30);
     }
     expect(Object.keys(group).sort()).toEqual(HOOK_WIRING.map((w) => w.event).sort());
   });
 
-  test("writes absolute commands: Antigravity expands no placeholder in these files", () => {
+  test('writes absolute commands: Antigravity expands no placeholder in these files', () => {
     install(ctx());
 
-    const text = readFileSync(hooksPath(), "utf8") + readFileSync(appMcpPath(), "utf8");
-    expect(text).not.toContain("${");
+    const text = readFileSync(hooksPath(), 'utf8') + readFileSync(appMcpPath(), 'utf8');
+    expect(text).not.toContain('${');
     for (const wiring of HOOK_WIRING) {
-      expect(text).toContain(join(pkgRoot, "bin", wiring.bin));
+      expect(text).toContain(join(pkgRoot, 'bin', wiring.bin));
     }
   });
 });
 
-describe("the plugin bundle", () => {
-  test("carries the manifest, the skill and the rules", () => {
+describe('the plugin bundle', () => {
+  test('carries the manifest, the skill and the rules', () => {
     install(ctx());
 
-    expect(readFileSync(join(skillDir(), "SKILL.md"), "utf8")).toBe("# Hindsight\n");
-    expect(readFileSync(join(rulesDir(), "AGENTS.md"), "utf8")).toBe("# Memory rules\n");
+    expect(readFileSync(join(skillDir(), 'SKILL.md'), 'utf8')).toBe('# Hindsight\n');
+    expect(readFileSync(join(rulesDir(), 'AGENTS.md'), 'utf8')).toBe('# Memory rules\n');
 
-    const manifest = readJsonFile(join(pluginDir(), "plugin.json"));
+    const manifest = readJsonFile(join(pluginDir(), 'plugin.json'));
     expect(manifest.name).toBe(PLUGIN_NAME);
-    expect(manifest.description).toBe("memory");
+    expect(manifest.description).toBe('memory');
   });
 
   test("stamps the installed package's version, so the two manifests cannot drift", () => {
     install(ctx());
 
-    expect(readJsonFile(join(pluginDir(), "plugin.json")).version).toBe(PKG_VERSION);
+    expect(readJsonFile(join(pluginDir(), 'plugin.json')).version).toBe(PKG_VERSION);
     // The template deliberately carries none — the version has one source of truth.
-    expect(readJsonFile(join(pkgRoot, "plugin.json")).version).toBeUndefined();
+    expect(readJsonFile(join(pkgRoot, 'plugin.json')).version).toBeUndefined();
   });
 
-  test("carries no hooks.json or mcp_config.json: either would be a second registration", () => {
+  test('carries no hooks.json or mcp_config.json: either would be a second registration', () => {
     install(ctx());
 
-    expect(existsSync(join(pluginDir(), "hooks.json"))).toBe(false);
-    expect(existsSync(join(pluginDir(), "mcp_config.json"))).toBe(false);
+    expect(existsSync(join(pluginDir(), 'hooks.json'))).toBe(false);
+    expect(existsSync(join(pluginDir(), 'mcp_config.json'))).toBe(false);
   });
 
-  test("replaces a stale copy of an asset rather than merging into it", () => {
+  test('replaces a stale copy of an asset rather than merging into it', () => {
     install(ctx());
-    writeFileSync(join(skillDir(), "GONE.md"), "removed upstream\n");
+    writeFileSync(join(skillDir(), 'GONE.md'), 'removed upstream\n');
 
     install(ctx());
 
-    expect(existsSync(join(skillDir(), "GONE.md"))).toBe(false);
-    expect(existsSync(join(skillDir(), "SKILL.md"))).toBe(true);
+    expect(existsSync(join(skillDir(), 'GONE.md'))).toBe(false);
+    expect(existsSync(join(skillDir(), 'SKILL.md'))).toBe(true);
   });
 
-  test("reports skipped assets when the package bundles none", () => {
-    rmSync(join(pkgRoot, "skills"), { recursive: true, force: true });
-    rmSync(join(pkgRoot, "rules"), { recursive: true, force: true });
+  test('reports skipped assets when the package bundles none', () => {
+    rmSync(join(pkgRoot, 'skills'), { recursive: true, force: true });
+    rmSync(join(pkgRoot, 'rules'), { recursive: true, force: true });
 
     const result = install(ctx());
 
-    expect(result.skill).toBe("skipped");
-    expect(result.rules).toBe("skipped");
+    expect(result.skill).toBe('skipped');
+    expect(result.rules).toBe('skipped');
     expect(existsSync(skillDir())).toBe(false);
     expect(existsSync(rulesDir())).toBe(false);
     // The manifest still goes out: the bundle is what makes the plugin discoverable.
-    expect(existsSync(join(pluginDir(), "plugin.json"))).toBe(true);
+    expect(existsSync(join(pluginDir(), 'plugin.json'))).toBe(true);
   });
 });
 
-describe("install: living alongside what is already there", () => {
-  test("writes 2-space JSON with a trailing newline", () => {
+describe('install: living alongside what is already there', () => {
+  test('writes 2-space JSON with a trailing newline', () => {
     install(ctx({ sharedMcp: true }));
 
     for (const path of [hooksPath(), appMcpPath(), sharedMcpPath()]) {
-      const text = readFileSync(path, "utf8");
-      expect(text.endsWith("\n")).toBe(true);
+      const text = readFileSync(path, 'utf8');
+      expect(text.endsWith('\n')).toBe(true);
       expect(text).toBe(`${JSON.stringify(JSON.parse(text) as unknown, null, 2)}\n`);
     }
   });
 
-  test("is idempotent: a second install replaces its own entries instead of doubling them", () => {
+  test('is idempotent: a second install replaces its own entries instead of doubling them', () => {
     install(ctx());
-    const first = readFileSync(hooksPath(), "utf8");
+    const first = readFileSync(hooksPath(), 'utf8');
     install(ctx());
 
     const hooks = readJsonFile(hooksPath());
@@ -288,62 +288,62 @@ describe("install: living alongside what is already there", () => {
     for (const wiring of HOOK_WIRING) {
       expect(entriesAt(hookGroup(), wiring.event)).toHaveLength(1);
     }
-    expect(readFileSync(hooksPath(), "utf8")).toBe(first);
+    expect(readFileSync(hooksPath(), 'utf8')).toBe(first);
   });
 
-  test("strips a stale copy of our own hook from the top-level event arrays", () => {
+  test('strips a stale copy of our own hook from the top-level event arrays', () => {
     seed(hooksPath(), {
       PreInvocation: [
         FOREIGN_HOOK,
-        { command: 'node "/old/install/bin/pre-invocation.js"', timeout: 30 }
-      ]
+        { command: 'node "/old/install/bin/pre-invocation.js"', timeout: 30 },
+      ],
     });
 
     install(ctx());
 
     // Left behind, the hook would run twice per invocation.
-    const topLevel = entriesAt(readJsonFile(hooksPath()), "PreInvocation");
+    const topLevel = entriesAt(readJsonFile(hooksPath()), 'PreInvocation');
     expect(topLevel).toEqual([FOREIGN_HOOK]);
-    expect(entriesAt(hookGroup(), "PreInvocation")).toHaveLength(1);
+    expect(entriesAt(hookGroup(), 'PreInvocation')).toHaveLength(1);
   });
 
   test("leaves another tool's hooks untouched", () => {
     seed(hooksPath(), {
-      "other-tool": { PreInvocation: [FOREIGN_HOOK] },
+      'other-tool': { PreInvocation: [FOREIGN_HOOK] },
       PreInvocation: [FOREIGN_HOOK],
-      Stop: [FOREIGN_HOOK]
+      Stop: [FOREIGN_HOOK],
     });
 
     install(ctx());
 
     const hooks = readJsonFile(hooksPath());
-    expect(hooks["other-tool"]).toEqual({ PreInvocation: [FOREIGN_HOOK] });
-    expect(entriesAt(hooks, "PreInvocation")).toEqual([FOREIGN_HOOK]);
-    expect(entriesAt(hooks, "Stop")).toEqual([FOREIGN_HOOK]);
+    expect(hooks['other-tool']).toEqual({ PreInvocation: [FOREIGN_HOOK] });
+    expect(entriesAt(hooks, 'PreInvocation')).toEqual([FOREIGN_HOOK]);
+    expect(entriesAt(hooks, 'Stop')).toEqual([FOREIGN_HOOK]);
   });
 
-  test("preserves a foreign MCP server registered under the hindsight name", () => {
+  test('preserves a foreign MCP server registered under the hindsight name', () => {
     seed(appMcpPath(), { mcpServers: { [MCP_SERVER_NAME]: FOREIGN_MCP, other: FOREIGN_MCP } });
 
     const result = install(ctx());
 
-    expect(result.appMcp).toBe("preserved");
+    expect(result.appMcp).toBe('preserved');
     expect(servers(appMcpPath())[MCP_SERVER_NAME]).toEqual(FOREIGN_MCP);
     expect(servers(appMcpPath()).other).toEqual(FOREIGN_MCP);
-    expect(logged.join("\n")).toContain("preserved");
+    expect(logged.join('\n')).toContain('preserved');
   });
 
   test("upgrades an entry written by upstream's own installer in place", () => {
     const upstream = {
-      command: "node",
-      args: ["/usr/lib/node_modules/@vectorize-io/hindsight-coding-agents/dist/mcp-server.js"],
-      env: { [MCP_HARNESS_ENV]: "antigravity-cli" }
+      command: 'node',
+      args: ['/usr/lib/node_modules/@vectorize-io/hindsight-coding-agents/dist/mcp-server.js'],
+      env: { [MCP_HARNESS_ENV]: 'antigravity-cli' },
     };
     seed(appMcpPath(), { mcpServers: { [MCP_SERVER_NAME]: upstream, other: FOREIGN_MCP } });
 
     const result = install(ctx());
 
-    expect(result.appMcp).toBe("installed");
+    expect(result.appMcp).toBe('installed');
     expect(servers(appMcpPath())[MCP_SERVER_NAME]).toEqual(mcpServerEntry(pkgRoot));
     expect(servers(appMcpPath()).other).toEqual(FOREIGN_MCP);
   });
@@ -351,7 +351,7 @@ describe("install: living alongside what is already there", () => {
   test("backs each touched file up once, keeping the user's original", () => {
     const originals = {
       [hooksPath()]: seed(hooksPath(), { PreInvocation: [FOREIGN_HOOK] }),
-      [appMcpPath()]: seed(appMcpPath(), { mcpServers: { other: FOREIGN_MCP } })
+      [appMcpPath()]: seed(appMcpPath(), { mcpServers: { other: FOREIGN_MCP } }),
     };
 
     install(ctx());
@@ -359,11 +359,11 @@ describe("install: living alongside what is already there", () => {
 
     for (const [path, original] of Object.entries(originals)) {
       // A second backup would replace the user's file with our own earlier output.
-      expect(readFileSync(`${path}.hindsight-backup`, "utf8")).toBe(original);
+      expect(readFileSync(`${path}.hindsight-backup`, 'utf8')).toBe(original);
     }
   });
 
-  test("takes no backup of a file it created itself", () => {
+  test('takes no backup of a file it created itself', () => {
     install(ctx());
 
     for (const path of [hooksPath(), appMcpPath()]) {
@@ -372,8 +372,8 @@ describe("install: living alongside what is already there", () => {
   });
 });
 
-describe("uninstall", () => {
-  test("removes exactly what install added", () => {
+describe('uninstall', () => {
+  test('removes exactly what install added', () => {
     install(ctx());
     const result = uninstall(ctx());
 
@@ -382,7 +382,7 @@ describe("uninstall", () => {
       appMcpPath: appMcpPath(),
       sharedMcpPath: sharedMcpPath(),
       pluginDir: pluginDir(),
-      pluginRemoved: true
+      pluginRemoved: true,
     });
 
     const hooks = readJsonFile(hooksPath());
@@ -393,7 +393,7 @@ describe("uninstall", () => {
     expect(existsSync(pluginDir())).toBe(false);
   });
 
-  test("cleans the shared registry too, however this machine was installed", () => {
+  test('cleans the shared registry too, however this machine was installed', () => {
     // A user who once passed --shared-mcp must not be left pointing at a plugin that is gone.
     install(ctx({ sharedMcp: true }));
     uninstall(ctx());
@@ -402,10 +402,10 @@ describe("uninstall", () => {
     expect(servers(appMcpPath())[MCP_SERVER_NAME]).toBeUndefined();
   });
 
-  test("leaves every foreign entry alone", () => {
+  test('leaves every foreign entry alone', () => {
     seed(hooksPath(), {
-      "other-tool": { PreInvocation: [FOREIGN_HOOK] },
-      PreInvocation: [FOREIGN_HOOK]
+      'other-tool': { PreInvocation: [FOREIGN_HOOK] },
+      PreInvocation: [FOREIGN_HOOK],
     });
     seed(appMcpPath(), { mcpServers: { other: FOREIGN_MCP } });
 
@@ -413,12 +413,12 @@ describe("uninstall", () => {
     uninstall(ctx());
 
     const hooks = readJsonFile(hooksPath());
-    expect(hooks["other-tool"]).toEqual({ PreInvocation: [FOREIGN_HOOK] });
-    expect(entriesAt(hooks, "PreInvocation")).toEqual([FOREIGN_HOOK]);
+    expect(hooks['other-tool']).toEqual({ PreInvocation: [FOREIGN_HOOK] });
+    expect(entriesAt(hooks, 'PreInvocation')).toEqual([FOREIGN_HOOK]);
     expect(servers(appMcpPath()).other).toEqual(FOREIGN_MCP);
   });
 
-  test("never removes a foreign hindsight MCP server", () => {
+  test('never removes a foreign hindsight MCP server', () => {
     seed(appMcpPath(), { mcpServers: { [MCP_SERVER_NAME]: FOREIGN_MCP } });
 
     install(ctx());
@@ -427,17 +427,17 @@ describe("uninstall", () => {
     expect(servers(appMcpPath())[MCP_SERVER_NAME]).toEqual(FOREIGN_MCP);
   });
 
-  test("keeps a plugin directory that is not ours", () => {
-    seed(join(pluginDir(), "plugin.json"), { name: "someone-elses-hindsight" });
+  test('keeps a plugin directory that is not ours', () => {
+    seed(join(pluginDir(), 'plugin.json'), { name: 'someone-elses-hindsight' });
 
     const result = uninstall(ctx());
 
     expect(result.pluginRemoved).toBe(false);
-    expect(existsSync(join(pluginDir(), "plugin.json"))).toBe(true);
-    expect(logged.join("\n")).toContain("not ours");
+    expect(existsSync(join(pluginDir(), 'plugin.json'))).toBe(true);
+    expect(logged.join('\n')).toContain('not ours');
   });
 
-  test("is safe to run twice, and on a machine that was never installed", () => {
+  test('is safe to run twice, and on a machine that was never installed', () => {
     expect(() => uninstall(ctx())).not.toThrow();
 
     install(ctx());

@@ -8,35 +8,35 @@
  * ever throwing, write it back when seeding a fresh machine, and summarise which server the user
  * is pointed at so the install output can say where memory will live.
  */
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
 
 /** One bank per repository, shared by every agent working in it — the runtime's own default. */
-export const DEFAULT_BANK_ID_TEMPLATE = "coding-agent::{gitProject}";
+export const DEFAULT_BANK_ID_TEMPLATE = 'coding-agent::{gitProject}';
 
 /** Where the config file lives, relative to the user's home directory. */
-const CONFIG_RELATIVE = [".hindsight", "coding-agent.json"] as const;
+const CONFIG_RELATIVE = ['.hindsight', 'coding-agent.json'] as const;
 
 /** Env var that relocates the config file itself (containers, CI, test harnesses). */
-const CONFIG_ENV = "HINDSIGHT_CONFIG";
+const CONFIG_ENV = 'HINDSIGHT_CONFIG';
 
 /** Suffix of the one-time backup taken before the first write to any file we touch. */
-const BACKUP_SUFFIX = ".hindsight-backup";
+const BACKUP_SUFFIX = '.hindsight-backup';
 
 /** Default daemon port, when `serverMode` is `daemon` and no `apiPort` is set. */
 export const DEFAULT_API_PORT = 9077;
 
 /** Hosted Hindsight endpoint, used when `serverMode` is `cloud`. */
-export const CLOUD_API_URL = "https://api.hindsight.vectorize.io";
+export const CLOUD_API_URL = 'https://api.hindsight.vectorize.io';
 
-export type ServerMode = "cloud" | "self-hosted" | "daemon";
+export type ServerMode = 'cloud' | 'self-hosted' | 'daemon';
 
-const SERVER_MODES: readonly ServerMode[] = ["cloud", "self-hosted", "daemon"];
+const SERVER_MODES: readonly ServerMode[] = ['cloud', 'self-hosted', 'daemon'];
 
 /** True when `value` names one of the runtime's server modes. */
 export function isServerMode(value: unknown): value is ServerMode {
-  return typeof value === "string" && (SERVER_MODES as readonly string[]).includes(value);
+  return typeof value === 'string' && (SERVER_MODES as readonly string[]).includes(value);
 }
 
 /**
@@ -71,8 +71,8 @@ export function configPath(opts?: { env?: NodeJS.ProcessEnv; home?: string }): s
  */
 export function readConfig(path?: string): CodingAgentConfig {
   try {
-    const parsed: unknown = JSON.parse(readFileSync(path ?? configPath(), "utf8"));
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+    const parsed: unknown = JSON.parse(readFileSync(path ?? configPath(), 'utf8'));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
       ? (parsed as CodingAgentConfig)
       : {};
   } catch {
@@ -102,7 +102,7 @@ export interface ServerDescription {
   apiUrl?: string;
   hasToken: boolean;
   /** Where the choice came from, so install output can say whether anything is actually set. */
-  source: "config" | "env" | "default";
+  source: 'config' | 'env' | 'default';
 }
 
 /**
@@ -113,22 +113,22 @@ export interface ServerDescription {
  */
 export function describeServer(
   config: CodingAgentConfig,
-  env: NodeJS.ProcessEnv = process.env
+  env: NodeJS.ProcessEnv = process.env,
 ): ServerDescription {
   const envMode = isServerMode(env.HINDSIGHT_SERVER_MODE) ? env.HINDSIGHT_SERVER_MODE : undefined;
   const envUrl = nonEmpty(env.HINDSIGHT_API_URL);
   const configMode = isServerMode(config.serverMode) ? config.serverMode : undefined;
-  const configUrl = nonEmpty(typeof config.apiUrl === "string" ? config.apiUrl : undefined);
+  const configUrl = nonEmpty(typeof config.apiUrl === 'string' ? config.apiUrl : undefined);
 
-  const source: ServerDescription["source"] =
-    configMode || configUrl ? "config" : envMode || envUrl ? "env" : "default";
+  const source: ServerDescription['source'] =
+    configMode || configUrl ? 'config' : envMode || envUrl ? 'env' : 'default';
 
-  const mode: ServerMode = configMode ?? envMode ?? (configUrl || envUrl ? "self-hosted" : "cloud");
+  const mode: ServerMode = configMode ?? envMode ?? (configUrl || envUrl ? 'self-hosted' : 'cloud');
   const apiUrl = configUrl ?? envUrl ?? defaultUrlFor(mode, config, env);
 
   const hasToken = Boolean(
-    nonEmpty(typeof config.apiToken === "string" ? config.apiToken : undefined) ??
-      nonEmpty(env.HINDSIGHT_API_TOKEN)
+    nonEmpty(typeof config.apiToken === 'string' ? config.apiToken : undefined) ??
+    nonEmpty(env.HINDSIGHT_API_TOKEN),
   );
 
   return { mode, ...(apiUrl ? { apiUrl } : {}), hasToken, source };
@@ -138,13 +138,13 @@ export function describeServer(
 function defaultUrlFor(
   mode: ServerMode,
   config: CodingAgentConfig,
-  env: NodeJS.ProcessEnv
+  env: NodeJS.ProcessEnv,
 ): string | undefined {
-  if (mode === "cloud") return CLOUD_API_URL;
-  if (mode !== "daemon") return undefined;
-  const envPort = Number.parseInt(env.HINDSIGHT_API_PORT ?? "", 10);
+  if (mode === 'cloud') return CLOUD_API_URL;
+  if (mode !== 'daemon') return undefined;
+  const envPort = Number.parseInt(env.HINDSIGHT_API_PORT ?? '', 10);
   const port =
-    typeof config.apiPort === "number" && Number.isFinite(config.apiPort)
+    typeof config.apiPort === 'number' && Number.isFinite(config.apiPort)
       ? config.apiPort
       : Number.isFinite(envPort)
         ? envPort

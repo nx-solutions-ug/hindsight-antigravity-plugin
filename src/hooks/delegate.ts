@@ -6,8 +6,8 @@
  * event's neutral reply instead and keeps the exit code at zero. Memory is best-effort; the session
  * is not.
  */
-import { runRuntimeEntry, RuntimeUnavailableError } from "../runtime.js";
-import type { RuntimeEntry } from "../host.js";
+import { runRuntimeEntry, RuntimeUnavailableError } from '../runtime.js';
+import type { RuntimeEntry } from '../host.js';
 
 export interface DelegateOptions {
   /** Runtime entry point to run. */

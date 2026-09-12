@@ -6,8 +6,8 @@
  * {@link RUNTIME_HARNESS} — or the `hindsight_*` tools would read a different config section, and
  * possibly a different bank, than the memory being recalled and retained around them.
  */
-import { MCP_HARNESS_ENV, RUNTIME_HARNESS } from "../host.js";
-import { delegateToRuntime, type DelegateOptions } from "../hooks/delegate.js";
+import { MCP_HARNESS_ENV, RUNTIME_HARNESS } from '../host.js';
+import { delegateToRuntime, type DelegateOptions } from '../hooks/delegate.js';
 
 export interface ServerOptions extends Partial<DelegateOptions> {
   /** Environment the harness marker is set on; defaults to this process's. */
@@ -22,8 +22,8 @@ export async function runServer(overrides: ServerOptions = {}): Promise<boolean>
 
   const ok = await delegateToRuntime({
     ...delegate,
-    entry: "mcp-server.js",
-    fallback: ""
+    entry: 'mcp-server.js',
+    fallback: '',
   });
 
   // Unlike a hook, a server that answers nothing is worse than one that is plainly gone: the client
