@@ -9,7 +9,7 @@
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { RUNTIME_PACKAGE, type RuntimeEntry } from "./harness.js";
+import { RUNTIME_PACKAGE, type RuntimeEntry } from "./host.js";
 
 const require = createRequire(import.meta.url);
 
@@ -68,12 +68,11 @@ export function runtimeVersion(): string | undefined {
  * their reply to stdout. Importing one is therefore the whole of running it, and keeping it
  * in-process avoids a second Node startup inside a hook budget measured in seconds.
  *
- * Two of them start themselves only when `process.argv[1]` is their own file — `mcp-server.js`
- * compares it against its own path, `antigravity-statusline.js` against its name — so that
- * importing them as a library does not spawn a server. A wrapper that left its own path there
- * would load those modules and run nothing at all. Standing in as the script the host spawned is
- * the honest description of what these wrappers are, so argv says so for the duration of the call
- * and is put back afterwards.
+ * `mcp-server.js` is the exception: it starts itself only when `process.argv[1]` is its own file,
+ * so that importing it as a library does not spawn a server. A wrapper that left its own path there
+ * would load the module and run nothing at all. Standing in as the script the host spawned is the
+ * honest description of what these wrappers are, so argv says so for the duration of the call and
+ * is put back afterwards.
  */
 export async function runRuntimeEntry(entry: RuntimeEntry): Promise<void> {
   const entryPath = resolveRuntimeEntry(entry);

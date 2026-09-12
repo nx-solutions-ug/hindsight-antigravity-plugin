@@ -1,12 +1,26 @@
 /**
- * Wiring this plugin into an Antigravity install, and taking it back out again.
+ * Wiring this plugin into the Antigravity desktop application, and taking it back out again.
  *
- * This is upstream's `install agy` with one substitution: every path points at this package's own
- * `bin/` wrappers instead of the runtime's `dist/`. The wrappers add the fail-safe reply the host
- * needs when memory is unreachable, and give the host a path that stays valid when the runtime is
- * upgraded underneath us. Everything else — the files touched, the grouping key, the backup rule,
- * the "preserve a foreign entry" rule — matches upstream exactly, so a machine wired by either
- * route behaves the same and can be cleaned up by either side.
+ * Three targets, for the three reasons set out in `host.ts`:
+ *
+ * - `~/.gemini/config/hooks.json` — the recall and retain hooks, grouped under the `coding-agents`
+ *   hook name that upstream's installer also uses, so the two routes replace rather than duplicate
+ *   each other's entries.
+ * - `~/.gemini/antigravity/mcp_config.json` — the app's own MCP registry, so the `hindsight_*` tools
+ *   appear in the app's MCP server list. `--shared-mcp` additionally writes Antigravity 2.x's shared
+ *   `~/.gemini/config/mcp_config.json`.
+ * - `~/.gemini/config/plugins/hindsight/` — a namespaced plugin bundle carrying `plugin.json`, the
+ *   companion skill and the always-on memory rules.
+ *
+ * Commands are written as absolute paths to this package's own `bin/` wrappers. Absolute, because
+ * Antigravity does not expand path placeholders in these files — not `${workspaceFolder}`, and
+ * nothing this plugin can rely on for a plugin root either — so a template would be spawned
+ * verbatim and fail. This package's `bin/`, rather than the runtime's `dist/`, because the wrappers
+ * add the fail-safe reply the host needs when memory is unreachable, and because their path stays
+ * valid when the runtime is upgraded underneath them.
+ *
+ * Every file is backed up once before the first write, foreign entries are never touched, and
+ * uninstall removes exactly what install added.
  */
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -14,19 +28,21 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { backupOnce } from "./config.js";
 import {
-  HARNESS,
+  APP_MCP_CONFIG_PATH,
   HOOKS_CONFIG_PATH,
-  HOOK_MARKER,
+  HOOK_NAME,
   HOOK_WIRING,
-  MCP_CONFIG_PATH,
+  HOST,
   MCP_HARNESS_ENV,
   MCP_SERVER_NAME,
-  SETTINGS_PATH,
-  SKILLS_DIR,
+  PLUGIN_DIR,
+  PLUGIN_NAME,
+  RUNTIME_HARNESS,
+  SHARED_MCP_CONFIG_PATH,
   SKILL_NAME,
   type HookWiring,
   type PluginBin
-} from "./harness.js";
+} from "./host.js";
 
 /**
  * Re-exported so `bin/install.js` needs exactly one built entry point: the seeding it does before
@@ -39,27 +55,42 @@ type JsonRecord = Record<string, unknown>;
 export interface InstallContext {
   /** User's home directory. Defaults to `os.homedir()`; tests point it at a scratch directory. */
   home?: string;
-  /** This package's root. Defaults to the directory containing `bin/` and `skills/`. */
+  /** This package's root. Defaults to the directory containing `bin/`, `skills/` and `rules/`. */
   pkgRoot?: string;
+  /**
+   * Also register the MCP server in Antigravity 2.x's shared `~/.gemini/config/mcp_config.json`.
+   * Off by default: on a host that reads both files, registering in both lists the server twice.
+   */
+  sharedMcp?: boolean;
   env?: NodeJS.ProcessEnv;
   log?: (message: string) => void;
 }
 
+/** What happened to one `mcp_config.json`. `skipped` means we were not asked to write it. */
+export type McpOutcome = "installed" | "preserved" | "skipped";
+
 export interface InstallResult {
   hooksPath: string;
-  mcpPath: string;
-  settingsPath: string;
+  appMcpPath: string;
+  sharedMcpPath: string;
+  pluginDir: string;
   skillDir: string;
-  statusLine: "installed" | "preserved";
-  mcp: "installed" | "preserved";
+  rulesDir: string;
+  /** The app's own registry — always written unless a foreign `hindsight` server holds the name. */
+  appMcp: McpOutcome;
+  /** Antigravity 2.x's shared registry — `skipped` unless `sharedMcp` was asked for. */
+  sharedMcp: McpOutcome;
   skill: "installed" | "skipped";
+  rules: "installed" | "skipped";
 }
 
 export interface UninstallResult {
   hooksPath: string;
-  mcpPath: string;
-  settingsPath: string;
-  skillDir: string;
+  appMcpPath: string;
+  sharedMcpPath: string;
+  pluginDir: string;
+  /** False when the plugin directory was left in place because it was not ours. */
+  pluginRemoved: boolean;
 }
 
 /** Absolute path of one of this package's executable wrappers. */
@@ -78,14 +109,14 @@ export function hookEntry(
   };
 }
 
-/** The stdio MCP server entry Antigravity spawns for the `hindsight_*` tools. */
+/** The stdio MCP server Antigravity spawns for the `hindsight_*` tools. */
 export function mcpServerEntry(
   pkgRoot: string
 ): { command: string; args: string[]; env: Record<string, string> } {
   return {
     command: "node",
     args: [binPath(pkgRoot, "mcp-server.js")],
-    env: { [MCP_HARNESS_ENV]: HARNESS }
+    env: { [MCP_HARNESS_ENV]: RUNTIME_HARNESS }
   };
 }
 
@@ -118,48 +149,41 @@ export function install(ctx: InstallContext = {}): InstallResult {
   const log = ctx.log ?? noop;
 
   const hooksPath = join(home, ...HOOKS_CONFIG_PATH);
-  const mcpPath = join(home, ...MCP_CONFIG_PATH);
-  const settingsPath = join(home, ...SETTINGS_PATH);
-  const skillDir = join(home, ...SKILLS_DIR, SKILL_NAME);
+  const appMcpPath = join(home, ...APP_MCP_CONFIG_PATH);
+  const sharedMcpPath = join(home, ...SHARED_MCP_CONFIG_PATH);
+  const pluginDir = join(home, ...PLUGIN_DIR);
+  const skillDir = join(pluginDir, "skills", SKILL_NAME);
+  const rulesDir = join(pluginDir, "rules");
 
   writeJson(hooksPath, mergeHooks(readJson(hooksPath), pkgRoot));
+  log(`${HOST}: hooks merged into ${hooksPath}`);
 
-  const mcpConfig = readJson(mcpPath);
-  const servers = record(mcpConfig.mcpServers);
-  const existingServer = servers[MCP_SERVER_NAME];
-  let mcp: InstallResult["mcp"] = "installed";
-  if (existingServer !== undefined && !isOurMcpEntry(existingServer)) {
-    mcp = "preserved";
-    log(
-      `${HARNESS}: existing "${MCP_SERVER_NAME}" MCP server preserved (Hindsight tools not registered)`
-    );
-  } else {
-    mcpConfig.mcpServers = { ...servers, [MCP_SERVER_NAME]: mcpServerEntry(pkgRoot) };
-    writeJson(mcpPath, mcpConfig);
-  }
+  const appMcp = registerMcp(appMcpPath, pkgRoot, log);
+  const sharedMcp = ctx.sharedMcp ? registerMcp(sharedMcpPath, pkgRoot, log) : "skipped";
+  if (appMcp === "installed") log(`${HOST}: MCP server registered in ${appMcpPath}`);
+  if (sharedMcp === "installed") log(`${HOST}: MCP server registered in ${sharedMcpPath}`);
 
-  const settings = readJson(settingsPath);
-  let statusLine: InstallResult["statusLine"] = "installed";
-  if (settings.statusLine === undefined || isOursByMarker(settings.statusLine)) {
-    const announce = settings.statusLine === undefined;
-    settings.statusLine = statusLineEntry(pkgRoot);
-    writeJson(settingsPath, settings);
-    if (announce) log(`${HARNESS}: Hindsight status line enabled in ${settingsPath}`);
-  } else {
-    statusLine = "preserved";
-    log(`${HARNESS}: existing custom status line preserved (Hindsight indicator not added)`);
-  }
+  writeJson(join(pluginDir, "plugin.json"), pluginManifest(pkgRoot));
 
-  log(`${HARNESS}: hooks merged into ${hooksPath}, MCP into ${mcpPath}`);
-
-  const skill = installSkill(pkgRoot, skillDir) ? "installed" : "skipped";
+  const skill = copyDir(join(pkgRoot, "skills", SKILL_NAME), skillDir) ? "installed" : "skipped";
+  const rules = copyDir(join(pkgRoot, "rules"), rulesDir) ? "installed" : "skipped";
   log(
-    skill === "installed"
-      ? `${HARNESS}: skill installed at ${skillDir}`
-      : `${HARNESS}: no skill bundled in this package — skipped`
+    `${HOST}: plugin bundle written to ${pluginDir}` +
+      ` (skill ${skill}, rules ${rules})`
   );
 
-  return { hooksPath, mcpPath, settingsPath, skillDir, statusLine, mcp, skill };
+  return {
+    hooksPath,
+    appMcpPath,
+    sharedMcpPath,
+    pluginDir,
+    skillDir,
+    rulesDir,
+    appMcp,
+    sharedMcp,
+    skill,
+    rules
+  };
 }
 
 export function uninstall(ctx: InstallContext = {}): UninstallResult {
@@ -167,19 +191,19 @@ export function uninstall(ctx: InstallContext = {}): UninstallResult {
   const log = ctx.log ?? noop;
 
   const hooksPath = join(home, ...HOOKS_CONFIG_PATH);
-  const mcpPath = join(home, ...MCP_CONFIG_PATH);
-  const settingsPath = join(home, ...SETTINGS_PATH);
-  const skillDir = join(home, ...SKILLS_DIR, SKILL_NAME);
+  const appMcpPath = join(home, ...APP_MCP_CONFIG_PATH);
+  const sharedMcpPath = join(home, ...SHARED_MCP_CONFIG_PATH);
+  const pluginDir = join(home, ...PLUGIN_DIR);
 
   if (existsSync(hooksPath)) {
     const hooks = readJson(hooksPath);
-    const group = hooks[HOOK_MARKER];
+    const group = hooks[HOOK_NAME];
     if (group && typeof group === "object") {
       const events = group as JsonRecord;
       for (const wiring of HOOK_WIRING) {
         setOrDelete(events, wiring.event, stripOurs(events[wiring.event], wiring));
       }
-      if (Object.keys(events).length === 0) delete hooks[HOOK_MARKER];
+      if (Object.keys(events).length === 0) delete hooks[HOOK_NAME];
     }
     for (const wiring of HOOK_WIRING) {
       setOrDelete(hooks, wiring.event, stripOurs(hooks[wiring.event], wiring));
@@ -187,41 +211,80 @@ export function uninstall(ctx: InstallContext = {}): UninstallResult {
     writeJson(hooksPath, hooks);
   }
 
-  if (existsSync(mcpPath)) {
-    const mcpConfig = readJson(mcpPath);
+  // Both registries, regardless of how this machine was installed: a user who once passed
+  // `--shared-mcp` must not be left with an entry pointing at a plugin that is gone.
+  for (const path of [appMcpPath, sharedMcpPath]) {
+    if (!existsSync(path)) continue;
+    const mcpConfig = readJson(path);
     const servers = record(mcpConfig.mcpServers);
     if (MCP_SERVER_NAME in servers && isOurMcpEntry(servers[MCP_SERVER_NAME])) {
       delete servers[MCP_SERVER_NAME];
       mcpConfig.mcpServers = servers;
-      writeJson(mcpPath, mcpConfig);
+      writeJson(path, mcpConfig);
     }
   }
 
-  if (existsSync(settingsPath)) {
-    const settings = readJson(settingsPath);
-    if (settings.statusLine !== undefined && isOursByMarker(settings.statusLine)) {
-      delete settings.statusLine;
-      writeJson(settingsPath, settings);
-    }
+  const pluginRemoved = removePluginDir(pluginDir);
+  log(
+    pluginRemoved
+      ? `${HOST}: hooks + MCP entry + plugin bundle removed`
+      : `${HOST}: hooks + MCP entry removed; ${pluginDir} left in place (not ours)`
+  );
+
+  return { hooksPath, appMcpPath, sharedMcpPath, pluginDir, pluginRemoved };
+}
+
+/** Put our entry in one `mcp_config.json`, unless a foreign server already holds the name. */
+function registerMcp(path: string, pkgRoot: string, log: (m: string) => void): McpOutcome {
+  const mcpConfig = readJson(path);
+  const servers = record(mcpConfig.mcpServers);
+  const existing = servers[MCP_SERVER_NAME];
+
+  if (existing !== undefined && !isOurMcpEntry(existing)) {
+    log(
+      `${HOST}: existing "${MCP_SERVER_NAME}" MCP server in ${path} preserved ` +
+        `(Hindsight tools not registered)`
+    );
+    return "preserved";
   }
 
-  rmSync(skillDir, { recursive: true, force: true });
+  mcpConfig.mcpServers = { ...servers, [MCP_SERVER_NAME]: mcpServerEntry(pkgRoot) };
+  writeJson(path, mcpConfig);
+  return "installed";
+}
 
-  log(`${HARNESS}: hooks + MCP entry + status line + skill removed`);
-  return { hooksPath, mcpPath, settingsPath, skillDir };
+/**
+ * The bundle's `plugin.json`.
+ *
+ * The repo's own manifest is the template and carries no version — stamping the installed
+ * package's version here is what keeps the two from drifting, which is exactly what happened while
+ * the version was maintained by hand in two files. The manifest names no components: Antigravity
+ * discovers a plugin's `skills/`, `rules/` and `agents/` by directory convention, and this bundle
+ * deliberately has no `hooks.json` or `mcp_config.json` to point at.
+ */
+function pluginManifest(pkgRoot: string): JsonRecord {
+  const template = readJson(join(pkgRoot, "plugin.json"));
+  const pkg = readJson(join(pkgRoot, "package.json"));
+  // `name` comes last on purpose: it has to agree with PLUGIN_DIR and with the check uninstall
+  // makes before deleting the bundle, so the constant wins over whatever the template says.
+  return {
+    ...template,
+    name: PLUGIN_NAME,
+    ...(typeof pkg.version === "string" ? { version: pkg.version } : {})
+  };
 }
 
 /** Merge our wiring into a hooks.json object, leaving every foreign entry in place. */
 function mergeHooks(hooks: JsonRecord, pkgRoot: string): JsonRecord {
-  // Upstream drops stale sibling keys that merely contain the marker (an older grouping spelling).
+  // Upstream drops stale sibling keys that merely contain the hook name (an older spelling).
   for (const key of Object.keys(hooks)) {
-    if (key !== HOOK_MARKER && key.includes(HOOK_MARKER)) delete hooks[key];
+    if (key !== HOOK_NAME && key.includes(HOOK_NAME)) delete hooks[key];
   }
-  const group = record(hooks[HOOK_MARKER]);
+  const group = record(hooks[HOOK_NAME]);
   for (const wiring of HOOK_WIRING) {
     group[wiring.event] = [...stripOurs(group[wiring.event], wiring), hookEntry(pkgRoot, wiring)];
   }
-  hooks[HOOK_MARKER] = group;
+  hooks[HOOK_NAME] = group;
   // Older installs (and upstream's own) wrote straight into the top-level event arrays; leaving one
   // behind would run the hook twice per invocation.
   for (const wiring of HOOK_WIRING) {
@@ -230,29 +293,20 @@ function mergeHooks(hooks: JsonRecord, pkgRoot: string): JsonRecord {
   return hooks;
 }
 
-function statusLineEntry(pkgRoot: string): { type: string; command: string } {
-  return { type: "command", command: `node "${binPath(pkgRoot, "statusline.js")}"` };
-}
-
 /** Every entry in `value` that is not ours — foreign hooks are never touched. */
 function stripOurs(value: unknown, wiring: HookWiring): unknown[] {
   return (Array.isArray(value) ? value : []).filter((entry) => !isOurHookEntry(entry, wiring));
 }
 
 /**
- * Ours by either signature: upstream's marker (its commands live under a `coding-agents` directory)
- * or a command spawning this package's wrapper for the same event. Matching only the marker would
- * make a second install of *this* package append a duplicate entry instead of replacing its own.
+ * Ours by either signature: upstream's hook name (its commands live under a `coding-agents`
+ * directory) or a command spawning this package's wrapper for the same event. Matching only the name
+ * would make a second install of *this* package append a duplicate entry instead of replacing its
+ * own.
  */
 function isOurHookEntry(entry: unknown, wiring: HookWiring): boolean {
   const json = JSON.stringify(entry) ?? "";
-  return json.includes(HOOK_MARKER) || json.replaceAll("\\\\", "/").includes(`/bin/${wiring.bin}`);
-}
-
-/** Ours by upstream's rule: the serialised value mentions the marker, or one of our wrappers. */
-function isOursByMarker(value: unknown): boolean {
-  const json = (JSON.stringify(value) ?? "").replaceAll("\\\\", "/");
-  return json.includes(HOOK_MARKER) || json.includes("/bin/statusline.js");
+  return json.includes(HOOK_NAME) || json.replaceAll("\\\\", "/").includes(`/bin/${wiring.bin}`);
 }
 
 function setOrDelete(target: JsonRecord, key: string, entries: unknown[]): void {
@@ -260,12 +314,26 @@ function setOrDelete(target: JsonRecord, key: string, entries: unknown[]): void 
   else delete target[key];
 }
 
-/** Copy the bundled skill into the host's skills directory. `false` when nothing is bundled. */
-function installSkill(pkgRoot: string, skillDir: string): boolean {
-  const source = join(pkgRoot, "skills", SKILL_NAME);
-  if (!existsSync(join(source, "SKILL.md"))) return false;
-  mkdirSync(dirname(skillDir), { recursive: true });
-  cpSync(source, skillDir, { recursive: true });
+/** Copy one directory of bundled assets. `false` when the package ships nothing there. */
+function copyDir(source: string, target: string): boolean {
+  if (!existsSync(source)) return false;
+  mkdirSync(dirname(target), { recursive: true });
+  rmSync(target, { recursive: true, force: true });
+  cpSync(source, target, { recursive: true });
+  return true;
+}
+
+/**
+ * Delete the plugin bundle, but only once it is recognisably ours.
+ *
+ * The directory is namespaced to us, yet it is still a directory in the user's home that we would be
+ * removing recursively. A `plugin.json` naming this plugin is cheap proof that we are deleting our
+ * own bundle and not, say, a hand-written plugin that happens to share the name.
+ */
+function removePluginDir(pluginDir: string): boolean {
+  if (!existsSync(pluginDir)) return true;
+  if (readJson(join(pluginDir, "plugin.json")).name !== PLUGIN_NAME) return false;
+  rmSync(pluginDir, { recursive: true, force: true });
   return true;
 }
 

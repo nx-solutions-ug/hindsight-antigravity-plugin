@@ -1,10 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { HARNESS, MCP_HARNESS_ENV, type RuntimeEntry } from "../src/harness.js";
+import { MCP_HARNESS_ENV, RUNTIME_HARNESS, type RuntimeEntry } from "../src/host.js";
 import { delegateToRuntime } from "../src/hooks/delegate.js";
 import { PRE_INVOCATION_FALLBACK, runPreInvocation } from "../src/hooks/pre-invocation.js";
 import { STOP_FALLBACK, runStopHook } from "../src/hooks/stop-hook.js";
 import { runServer } from "../src/mcp/server.js";
-import { runStatusLine } from "../src/statusline.js";
 
 /** Collects everything a wrapper writes, so no test ever reaches the real stdio. */
 function capture() {
@@ -167,33 +166,6 @@ describe("Stop hook", () => {
   });
 });
 
-describe("Status line", () => {
-  test("delegates to the runtime's statusline entry", async () => {
-    const io = capture();
-
-    const ok = await runStatusLine({ run: io.ok, stdout: io.stdout, stderr: io.stderr });
-
-    expect(ok).toBe(true);
-    expect(io.seen).toEqual(["antigravity-statusline.js"]);
-    expect(io.stdoutText()).toBe("");
-  });
-
-  test("writes nothing to stdout when the runtime is unavailable", async () => {
-    const io = capture();
-
-    const ok = await runStatusLine({
-      run: io.fail("runtime gone"),
-      stdout: io.stdout,
-      stderr: io.stderr
-    });
-
-    // The host renders stdout verbatim: a fallback would be shown to the user as their status line.
-    expect(ok).toBe(false);
-    expect(io.stdoutText()).toBe("");
-    expect(io.stderrText()).toStartWith("hindsight: ");
-  });
-});
-
 describe("MCP server", () => {
   const previousExitCode = process.exitCode;
 
@@ -204,14 +176,14 @@ describe("MCP server", () => {
     process.exitCode = previousExitCode ?? 0;
   });
 
-  test("tells the runtime which harness is asking", async () => {
+  test("names the runtime's own harness, the one the hooks also stamp", async () => {
     const io = capture();
     const env: NodeJS.ProcessEnv = {};
 
     const ok = await runServer({ env, run: io.ok, stdout: io.stdout, stderr: io.stderr });
 
     expect(ok).toBe(true);
-    expect(env[MCP_HARNESS_ENV]).toBe(HARNESS);
+    expect(env[MCP_HARNESS_ENV]).toBe(RUNTIME_HARNESS);
     expect(env[MCP_HARNESS_ENV]).toBe("antigravity-cli");
     expect(io.seen).toEqual(["mcp-server.js"]);
   });

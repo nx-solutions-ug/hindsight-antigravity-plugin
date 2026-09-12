@@ -1,50 +1,79 @@
 # Hindsight Antigravity Plugin
 
-Long-term project memory for **Google Antigravity** (`agy`), backed by
-[Hindsight](https://hindsight.vectorize.io). This package is the Antigravity packaging of
-[`@vectorize-io/hindsight-coding-agents`](https://github.com/vectorize-io/hindsight) — it wires that
-runtime's `antigravity-cli` harness into Antigravity's lifecycle hooks, its stdio MCP server, its
-status line and its companion skill, and implements no memory logic of its own. Everything about how
-memory is recalled, retained, scoped to a bank and configured belongs to the runtime; this plugin's
-job is wiring, fail-safe delegation and packaging.
+Long-term project memory for the **Google Antigravity desktop application** — the app you launch and
+open a workspace in, whose state lives in `~/.gemini/antigravity` — backed by
+[Hindsight](https://hindsight.vectorize.io).
 
-There is **no setup command and no ingest command**. Open a repo in Antigravity and the memory for
-that repo builds itself in the background.
+This package wires [`@vectorize-io/hindsight-coding-agents`](https://github.com/vectorize-io/hindsight)
+into the app's lifecycle hooks, its MCP server list and a namespaced plugin bundle, and implements no
+memory logic of its own. Everything about how memory is recalled, retained, scoped to a bank and
+configured belongs to the runtime; this plugin's job is wiring, fail-safe delegation and packaging.
+
+> **Not for `agy`.** If you want memory in the Antigravity **CLI**, use upstream's own installer —
+> `npx @vectorize-io/hindsight-coding-agents install agy` — which wires the same runtime into the
+> TUI, including a status line and `~/.gemini/antigravity-cli/settings.json`. This plugin never
+> writes to the CLI's tree. The two share one memory bank per repository, so running both is fine.
+
+There is **no setup command and no ingest command**. Open a workspace in Antigravity and the memory
+for that repo builds itself in the background.
 
 ---
 
 ## Installation
 
-### Option 1: As an Antigravity plugin
-
-The repository is a plugin in its own right — `plugin.json`, `hooks.json` and `mcp_config.json`
-point at this package's `bin/` wrappers via `${PLUGIN_ROOT}`. Install it the way you install any
-Antigravity plugin, or from a checkout:
-
 ```bash
-bun install
-bun run build
+npm i -g @chronova/hindsight-antigravity-plugin
+hindsight-antigravity-install
 ```
 
-### Option 2: Merge the wiring into your Antigravity config
+…or from a checkout: `bun install && bun run build && node ./bin/install.js`.
+
+Then **restart the Antigravity app**.
+
+### What the installer writes
+
+| path                                               | what is added                                                         |
+| -------------------------------------------------- | --------------------------------------------------------------------- |
+| `~/.gemini/config/hooks.json`                      | the `PreInvocation` and `Stop` hooks, grouped under `coding-agents`    |
+| `~/.gemini/antigravity/mcp_config.json`            | `mcpServers.hindsight` — the app's own MCP registry                    |
+| `~/.gemini/config/plugins/hindsight/plugin.json`   | the plugin manifest that makes the bundle discoverable                 |
+| `~/.gemini/config/plugins/hindsight/skills/…`      | the companion skill                                                    |
+| `~/.gemini/config/plugins/hindsight/rules/…`       | the always-on memory rules                                             |
+
+Three targets rather than one, because Antigravity splits them that way:
+
+- **Hooks** are host-wide. `~/.gemini/config/hooks.json` is the global hooks file every Antigravity
+  flavour reads — the app, the IDE and the CLI. The app has no hooks file of its own.
+- **MCP** is per product. `~/.gemini/antigravity/mcp_config.json` is the file the app's
+  *Settings → Customizations → Open MCP Config* button opens, and the one its MCP server list reads.
+- **Skills and rules** ride in a **plugin bundle**, the app's native way to package them.
+
+The bundle deliberately contains **no `hooks.json` and no `mcp_config.json`**, even though the plugin
+format allows both: a plugin-level copy would be a *second* registration of the same command, and two
+`PreInvocation` entries inject memory twice and retain the turn twice. Anything that spawns a process
+is registered exactly once, at host level.
+
+Commands are written as **absolute paths**. Antigravity expands no placeholder in these files (not
+even `${workspaceFolder}`), so a template would be spawned verbatim and fail.
+
+Each file is backed up once to `<path>.hindsight-backup` before it is first rewritten, and foreign
+entries — your own hooks, someone else's MCP servers — are never touched.
+
+#### If the app does not pick the server up
+
+Antigravity 2.x also reads a shared `~/.gemini/config/mcp_config.json` across the app, the IDE, the
+CLI and the SDK. That file is **opt-in** here, because a host that reads both would list `hindsight`
+twice:
 
 ```bash
-node ./bin/install.js
+node ./bin/install.js --shared-mcp
 ```
 
-This merges the same wiring into your existing Antigravity configuration rather than copying a
-plugin directory:
+Uninstall cleans both files regardless of how you installed.
 
-| file                                          | what is added                                                     |
-| --------------------------------------------- | ----------------------------------------------------------------- |
-| `~/.gemini/config/hooks.json`                  | the `PreInvocation` and `Stop` hooks, grouped under `coding-agents` |
-| `~/.gemini/config/mcp_config.json`             | `mcpServers.hindsight`, with `HINDSIGHT_MCP_HARNESS=antigravity-cli` |
-| `~/.gemini/antigravity-cli/settings.json`      | the `Hindsight · <bank>` status line (an existing custom status line is preserved) |
-| `~/.gemini/config/skills/hindsight-coding-agent` | the companion skill                                               |
+### Seeding the server on a fresh machine
 
-Each file is backed up once to `<path>.hindsight-backup` before it is first rewritten.
-
-On a fresh machine the installer can also seed the config file, without ever overwriting a field it
+The installer can also seed `~/.hindsight/coding-agent.json`, without ever overwriting a field it
 already sets:
 
 ```bash
@@ -53,15 +82,6 @@ node ./bin/install.js --server self-hosted --api-url http://localhost:8888
 node ./bin/install.js --server daemon
 ```
 
-### Option 3: Upstream's own installer
-
-```bash
-npx @vectorize-io/hindsight-coding-agents install agy
-```
-
-Upstream writes the **same entries under the same marker**, so the two routes replace each other
-rather than doubling up — pick whichever you prefer, and re-running either one is safe.
-
 ---
 
 ## What happens automatically
@@ -69,8 +89,8 @@ rather than doubling up — pick whichever you prefer, and re-running either one
 Nothing below needs a command.
 
 - **One memory bank per repository.** The default `bankIdTemplate` is `coding-agent::{gitProject}`,
-  so every coding agent you run against a repo — Antigravity included — shares one bank, and linked
-  worktrees resolve to the main checkout's bank.
+  so every coding agent you run against a repo — the Antigravity app and `agy` included — shares one
+  bank, and linked worktrees resolve to the main checkout's bank.
 - **Seeding on first open.** A cold bank is seeded from recent commit messages plus a read-only
   codebase survey of the repo's structure.
 - **Background top-ups each session start.** New commits and new conversations are folded in by the
@@ -94,7 +114,8 @@ Layering, later wins per field:
 2. environment variables — `HINDSIGHT_API_URL`, `HINDSIGHT_API_TOKEN`, and one per scalar setting
    (`HINDSIGHT_<FIELD_IN_CAPS>`)
 3. the file's top level
-4. `harnesses.<name>` — for Antigravity that section is `harnesses.antigravity-cli`
+4. `harnesses.<name>` — `harnesses.antigravity-cli`, which is the runtime's id for its Antigravity
+   integration and covers the app as well as the CLI (see [Harness naming](#harness-naming))
 5. `banks.<resolvedBankId>` — per-repo, applied after the bank is resolved
 
 Environment variables are a **fallback**: the file wins wherever it sets a value.
@@ -157,7 +178,8 @@ else; this plugin invents none.
 ## MCP tools
 
 The stdio MCP server registered as `hindsight` is the runtime's, started with
-`HINDSIGHT_MCP_HARNESS=antigravity-cli`:
+`HINDSIGHT_MCP_HARNESS=antigravity-cli` — see [Harness naming](#harness-naming) for why that value
+is not `antigravity`:
 
 | tool                              | use                                                                  |
 | --------------------------------- | -------------------------------------------------------------------- |
@@ -185,11 +207,34 @@ The stdio MCP server registered as `hindsight` is the runtime's, started with
 3. **`Stop`** (`bin/stop-hook.js` → `src/hooks/stop-hook.ts`). Antigravity sends `conversationId`,
    `transcriptPath` and `workspacePaths`; the runtime writes the transcript back into the bank and
    the hook replies `{}`.
-4. **Status line** (`bin/statusline.js`) prints `Hindsight · <bank>`.
 
 Every hook is fail-safe: if the runtime cannot be started at all, the wrapper writes the event's
-neutral reply (`{"injectSteps":[]}` or `{}`), logs the reason to stderr and exits zero. The status
-line prints nothing rather than an error. Memory is best-effort; the session is not.
+neutral reply (`{"injectSteps":[]}` or `{}`), logs the reason to stderr and exits zero. Memory is
+best-effort; the session is not.
+
+There is no status-line wrapper. The `Hindsight · <bank>` indicator is a feature of the CLI's TUI,
+rendered from `~/.gemini/antigravity-cli/settings.json`; the desktop app draws its own chrome and has
+nothing to render a command's stdout into. `hindsight_diagnose` reports the resolved bank instead.
+
+---
+
+## Harness naming
+
+The runtime stamps everything it retains with a harness id, and for Antigravity that id is
+**`antigravity-cli`** — including in the app.
+
+That is upstream's name for its Antigravity *integration*, not a claim about which surface is
+running: `dist/antigravity-hook.js` and `dist/antigravity-stop-hook.js` call
+`runHarnessPrompt("antigravity-cli")` with no way to override it. The id selects the
+`harnesses.<id>` config section and feeds `{harness}` in `bankIdTemplate`, so the MCP server has to
+be given the same one. Setting `HINDSIGHT_MCP_HARNESS=antigravity` would point the `hindsight_*`
+tools at a different config section — and possibly a different bank — than the memory being recalled
+and retained around them.
+
+The app and the CLI speak the same hook protocol (same `hooks.json` shape, same
+`PreInvocation`/`Stop` events, same `workspacePaths` / `conversationId` / `transcriptPath` payload),
+so one runtime harness correctly serves both. Only the installation differs — which is the whole of
+what this plugin does differently from `install agy`.
 
 ---
 
@@ -202,7 +247,9 @@ bun test         # unit tests
 bun run lint     # tsc --noEmit
 ```
 
-To dogfood a change in your own Antigravity: `bun run build`, then `node ./bin/install.js`.
+To dogfood a change in your own Antigravity: `bun run build`, then `node ./bin/install.js`, then
+restart the app. The installer points the host at this checkout's `bin/`, so subsequent rebuilds need
+no reinstall — only a restart.
 
 ---
 
@@ -212,10 +259,35 @@ To dogfood a change in your own Antigravity: `bun run build`, then `node ./bin/i
 node ./bin/install.js uninstall
 ```
 
-Removes exactly what the installer added — the hook group, the MCP server entry, the status line
-(restoring a custom one it preserved) and the installed skill — and leaves everything else in those
-files alone. Your memory itself lives in the bank on the server, not on disk; to reset a repo's
-memory, delete its bank.
+Removes exactly what the installer added — the hook group, the MCP server entry in both registries,
+and the plugin bundle — and leaves everything else in those files alone. A plugin directory whose
+`plugin.json` is not ours is left in place. Your memory itself lives in the bank on the server, not
+on disk; to reset a repo's memory, delete its bank.
+
+---
+
+## Upgrading from 2.x
+
+2.x was rewritten against upstream's `antigravity-cli` harness and installed like `agy`: it wrote the
+MCP server to the shared `~/.gemini/config/mcp_config.json`, enabled a status line in
+`~/.gemini/antigravity-cli/settings.json`, dropped the skill into `~/.gemini/config/skills/`, and
+shipped no plugin bundle at all. None of that is how the desktop app is extended.
+
+Run `node ./bin/install.js` after upgrading. Then, if you installed 2.x, clean up what it left
+behind — the new uninstaller does not know about paths this version never writes:
+
+```bash
+# the CLI status line 2.x enabled for an app that has none
+#   remove the "statusLine" key from ~/.gemini/antigravity-cli/settings.json
+# the skill 2.x copied outside any plugin bundle
+rm -rf ~/.gemini/config/skills/hindsight-coding-agent
+```
+
+The `hindsight` entry in `~/.gemini/config/mcp_config.json` needs no action: this version's
+uninstaller clears it, and leaving it alongside the app registry only risks a duplicate listing —
+remove it if the app shows `hindsight` twice.
+
+Nothing about your memory changes: same runtime, same harness id, same bank, same tools.
 
 ---
 
@@ -240,8 +312,9 @@ scoping modes and an eight-tool MCP server. All of it is gone, replaced by the u
   `hindsight_ingest_document` and `hindsight_capture_initiative` for writing.
 - **Injection changes.** Memory now arrives as an ephemeral message before the turn, not as
   `<hindsight_mental_models>` / `<hindsight_recalled_memories>` blocks.
-- **Re-run the installer** after upgrading so the hook, MCP and status-line entries point at the new
-  wrappers.
+- **Re-run the installer** after upgrading so the hook and MCP entries point at the new wrappers.
+  1.x copied a plugin directory into `~/.gemini/config/plugins/hindsight`; this version writes its
+  bundle to the same place, so that directory is replaced rather than left stale.
 
 ---
 

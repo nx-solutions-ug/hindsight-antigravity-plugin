@@ -4,8 +4,9 @@ This file contains Antigravity-specific instructions, hook contracts, and local 
 directives for `@chronova/hindsight-antigravity-plugin`. Universal project conventions are defined in
 [AGENTS.md](./AGENTS.md).
 
-The memory logic belongs to `@vectorize-io/hindsight-coding-agents`. What is specified here is the
-contract between Antigravity and this package's wrappers.
+The host is the **Antigravity desktop application**, not `agy`. The memory logic belongs to
+`@vectorize-io/hindsight-coding-agents`. What is specified here is the contract between the app and
+this package's wrappers.
 
 ---
 
@@ -64,9 +65,9 @@ best-effort; the session is not.
   **zero**. Never a non-zero exit, never an empty stdout, never a thrown error.
 - Failures *inside* the runtime are the runtime's own to report: it already answers the host and
   writes its diagnostics. Only a failure to start it is handled here (`src/hooks/delegate.ts`).
-- The **status line** (`bin/statusline.js`) has no neutral reply: Antigravity renders stdout
-  verbatim, so a JSON object or an error string would be displayed to the user as their status line.
-  When the runtime is unavailable it prints **nothing** and the line stays empty.
+- There is **no status line** to fail safe. It is a feature of the CLI's TUI, rendered from
+  `~/.gemini/antigravity-cli/settings.json`; the desktop app draws its own chrome and has nothing to
+  render a command's stdout into, so this package ships no status-line wrapper at all.
 - The MCP server is the one exception to silent degradation: a stdio server that answers nothing
   leaves the client waiting on a peer that will never speak, so it sets a non-zero `process.exitCode`
   — without throwing — when the runtime cannot start.
@@ -79,6 +80,15 @@ The MCP server (`src/mcp/server.ts` → `bin/mcp-server.js`) hands the process t
 `dist/mcp-server.js`, setting `HINDSIGHT_MCP_HARNESS=antigravity-cli` when the host has not pinned it
 already.
 
+That value is **not** `antigravity`, deliberately. `dist/antigravity-hook.js` and
+`dist/antigravity-stop-hook.js` call `runHarnessPrompt("antigravity-cli")` / `runHarnessRetain(…)`
+with no override, so the hooks stamp that id whatever surface they run under. Since the id selects
+the `harnesses.<id>` config section and feeds `{harness}` in `bankIdTemplate`, giving the MCP server
+a different one would point the `hindsight_*` tools at a different config section — and possibly a
+different bank — than the memory being recalled and retained around them. `src/host.ts` keeps `HOST`
+(`"antigravity"`, the app) and `RUNTIME_HARNESS` (`"antigravity-cli"`, the runtime's protocol id) as
+two separate constants for this reason.
+
 - stdout belongs to the MCP protocol. Never `console.log` anywhere on an MCP execution path; all
   logging goes to `console.error`/`stderr`.
 - The tools are the runtime's (`hindsight_search_knowledge_pages`, `hindsight_read_knowledge_page`,
@@ -88,7 +98,7 @@ already.
 
 ---
 
-## 4. Local Testing & Dogfooding in Antigravity
+## 4. Install Targets
 
 ```bash
 # 1. Build TypeScript sources
@@ -98,22 +108,40 @@ bun run build
 bun test
 bun run lint
 
-# 3. Wire into the active Antigravity configuration
+# 3. Wire into the Antigravity desktop app, then restart it
 node ./bin/install.js
 ```
 
-The installer **merges into your existing `~/.gemini/config/*`** — it no longer copies a plugin
-directory into `~/.gemini/config/plugins/hindsight`:
+Three targets, because the app splits them that way:
 
-- `~/.gemini/config/hooks.json` — the two hooks, grouped under the `coding-agents` key.
-- `~/.gemini/config/mcp_config.json` — `mcpServers.hindsight`, with
-  `HINDSIGHT_MCP_HARNESS=antigravity-cli`.
-- `~/.gemini/antigravity-cli/settings.json` — the status line (an existing custom one is preserved).
-- `~/.gemini/config/skills/hindsight-coding-agent` — the companion skill.
+| path                                             | why there                                                            |
+| ------------------------------------------------ | -------------------------------------------------------------------- |
+| `~/.gemini/config/hooks.json`                    | the global hooks file every Antigravity flavour reads; the app has none of its own |
+| `~/.gemini/antigravity/mcp_config.json`          | the app's **own** MCP registry — the file its "Open MCP Config" button opens |
+| `~/.gemini/config/plugins/hindsight/`            | a namespaced plugin bundle: `plugin.json`, `skills/`, `rules/`       |
+
+`--shared-mcp` additionally writes Antigravity 2.x's shared `~/.gemini/config/mcp_config.json`. It is
+opt-in because a host that reads both files lists `hindsight` twice; uninstall cleans both regardless.
+
+### Rules this file exists to state
+
+- **Never write under `~/.gemini/antigravity-cli/`.** That tree — `settings.json`, the status line,
+  the plugin staging directory — belongs to `agy` and to upstream's `install agy`.
+- **The plugin bundle carries no `hooks.json` and no `mcp_config.json`.** The format allows both, but
+  a plugin-level copy is a *second* registration of the same command: two `PreInvocation` entries
+  inject memory twice and retain the turn twice. Declarative content (skills, rules) is idempotent
+  and belongs in the bundle; anything that spawns a process is registered once, at host level.
+- **Commands are absolute paths, written at install time.** Antigravity expands no placeholder in
+  these files — not `${workspaceFolder}`, and nothing reliable for a plugin root — so a shipped
+  template could only ever be spawned verbatim and fail.
+- **`plugin.json` in the repo carries no version.** The installer stamps `package.json`'s, so the two
+  cannot drift the way they did when both were maintained by hand.
 
 Each file is backed up once to `<path>.hindsight-backup`. `node ./bin/install.js uninstall` removes
-exactly what was added and leaves foreign entries alone. Restart `agy` to pick up new wiring.
+exactly what was added and leaves foreign entries alone. Restart the **Antigravity app** to pick up
+new wiring.
 
-`npx @vectorize-io/hindsight-coding-agents install agy` writes the same entries under the same
-marker, so keep the two in sync when changing `src/harness.ts` or `src/installer.ts` — either route
-must be able to replace and uninstall the other's entries.
+`npx @vectorize-io/hindsight-coding-agents install agy` wires the same runtime into the CLI under the
+same `coding-agents` hook name, so keep the hook *protocol* in `src/host.ts` in sync with upstream —
+either route must be able to replace and uninstall the other's hook entries. The *files written*
+differ on purpose, and that difference is the whole point of this package.

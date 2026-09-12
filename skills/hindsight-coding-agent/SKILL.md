@@ -1,22 +1,22 @@
 ---
 name: hindsight-coding-agent
-description: How this machine's Hindsight coding-agent memory works in Antigravity — the plugin behind the 🧠 credits and the `Hindsight · <bank>` status line. Use when the user says "store/remember this in hindsight", asks what the memory or knowledge pages are, wants to configure per-repo memory (disable it, rename banks, change git depth), or something memory-related looks broken.
+description: How this machine's Hindsight coding-agent memory works in the Antigravity app — the plugin behind the 🧠 credits. Use when the user says "store/remember this in hindsight", asks what the memory or knowledge pages are, wants to configure per-repo memory (disable it, rename banks, change git depth), or something memory-related looks broken.
 ---
 
-# Hindsight Coding-Agent Memory (Antigravity)
+# Hindsight Coding-Agent Memory (Antigravity app)
 
-This machine runs `@chronova/hindsight-antigravity-plugin`: long-term project memory for Antigravity
-sessions, backed by a Hindsight server. The memory logic is
+This machine runs `@chronova/hindsight-antigravity-plugin`: long-term project memory for the
+Antigravity desktop app, backed by a Hindsight server. The memory logic is
 [`@vectorize-io/hindsight-coding-agents`](https://github.com/vectorize-io/hindsight); the plugin
-wires it into Antigravity's `PreInvocation` and `Stop` hooks, a stdio MCP server and the status line.
-You (the agent) are already wired into it — this skill explains what happens automatically, which
-tools you have, and how to configure or debug it.
+wires it into Antigravity's `PreInvocation` and `Stop` hooks and a stdio MCP server. You (the agent)
+are already wired into it — this skill explains what happens automatically, which tools you have,
+and how to configure or debug it.
 
 ## What happens automatically (no action needed)
 
-- **Per-repo memory bank**: each repository resolves to one bank, `coding-agent::<repo>` by default,
-  shown in the status line as `Hindsight · <bank>`. Every coding agent the user runs on that repo
-  shares it, and linked worktrees resolve to the main checkout's bank.
+- **Per-repo memory bank**: each repository resolves to one bank, `coding-agent::<repo>` by default
+  — `hindsight_diagnose` reports the resolved id. Every coding agent the user runs on that repo
+  shares it (the Antigravity CLI included), and linked worktrees resolve to the main checkout's bank.
 - **Ingestion builds itself**: on first open, the bank is seeded from recent commit messages and a
   read-only codebase survey; every session start, a background engine tops it up (new commits, new
   conversations) and keeps 5 knowledge pages current. There is NO ingest or setup command to run.
@@ -74,7 +74,9 @@ turn memory on. Layering, later wins per field:
 2. environment variables — `HINDSIGHT_API_URL`, `HINDSIGHT_API_TOKEN`, and one per scalar setting
    (`HINDSIGHT_<FIELD_IN_CAPS>`), for containers and CI that inject config rather than write a file
 3. the file's top level
-4. `harnesses.antigravity-cli` — this harness's section
+4. `harnesses.antigravity-cli` — this harness's section. The id is `antigravity-cli` even in the
+   desktop app: it is the runtime's name for its Antigravity integration, hardcoded in its hook
+   entry points, and it covers the app and the CLI alike
 5. `banks.<resolvedBankId>` — per-repo override, applied after the bank is resolved
 
 Environment variables are a **fallback**: the file wins wherever it sets a value.
@@ -101,8 +103,8 @@ fault.
 
 ### Per-repo control — `banks.<bankId>`
 
-Keyed by the **resolved bank id** (the one in the status line) and applied AFTER bank resolution, so
-it survives directory moves:
+Keyed by the **resolved bank id** (the one `hindsight_diagnose` reports) and applied AFTER bank
+resolution, so it survives directory moves:
 
 ```jsonc
 {
@@ -126,7 +128,8 @@ several repos can converge on one shared bank). To route by directory instead, u
 3. Dynamic — `bankIdTemplate`, default `"coding-agent::{gitProject}"`. `{gitProject}` is
    worktree-aware (every linked worktree resolves to the main worktree's name); `{project}` is the
    working-directory basename; `{harness}` is `antigravity-cli` here. Use
-   `"{harness}::{gitProject}"` to give each agent its own bank instead of sharing one per repo.
+   `"{harness}::{gitProject}"` to give each agent its own bank instead of sharing one per repo —
+   note this does NOT separate the app from the CLI, which share that harness id.
 
 ### Other settings users ask about
 
@@ -138,13 +141,27 @@ harness / per bank), `logLevel`. The full reference is in
 ## Installing, updating, uninstalling
 
 ```bash
-node ./bin/install.js                # merge hooks, MCP, status line and this skill into ~/.gemini
-node ./bin/install.js uninstall      # remove exactly what it added
+hindsight-antigravity-install            # wire the app up; restart the app afterwards
+hindsight-antigravity-install uninstall  # remove exactly what it added
 ```
 
-`npx @vectorize-io/hindsight-coding-agents install agy` writes the same entries under the same
-marker, so the two routes replace each other rather than doubling up. Each touched file is backed up
-once to `<path>.hindsight-backup`.
+What it writes, and why each goes where it does:
+
+- `~/.gemini/config/hooks.json` — the `PreInvocation` and `Stop` hooks. Host-wide: every Antigravity
+  flavour reads this file, and the app has no hooks file of its own.
+- `~/.gemini/antigravity/mcp_config.json` — `mcpServers.hindsight`, the app's own MCP registry (the
+  file its Settings → Customizations → "Open MCP Config" button opens). `--shared-mcp` additionally
+  writes Antigravity 2.x's shared `~/.gemini/config/mcp_config.json`; it is opt-in because a host
+  that reads both lists the server twice.
+- `~/.gemini/config/plugins/hindsight/` — the plugin bundle: `plugin.json`, this skill, and the
+  always-on memory rules. It deliberately carries no `hooks.json` or `mcp_config.json`, because a
+  second registration of the same command would inject memory twice per turn.
+
+Nothing is ever written under `~/.gemini/antigravity-cli/` — that tree belongs to the Antigravity
+CLI. For memory in the CLI, the user wants `npx @vectorize-io/hindsight-coding-agents install agy`,
+which wires the same runtime into the TUI under the same `coding-agents` hook name. Both can be
+installed; they share one bank per repository. Each touched file is backed up once to
+`<path>.hindsight-backup`.
 
 ## Diagnosing
 
@@ -155,9 +172,12 @@ once to `<path>.hindsight-backup`.
   for detail) and `diag.jsonl` (one JSON line per reflect and page fetch, with `reflect_failed` /
   `pages_failed` on errors).
 - Failures never break the session. A reflect, page fetch or retain that fails degrades to an
-  ordinary memoryless turn; if the runtime cannot start at all, the hooks answer neutrally and the
-  status line prints nothing. "No memory" is therefore a log question, not a crash.
+  ordinary memoryless turn; if the runtime cannot start at all, the hooks answer neutrally and exit
+  zero. "No memory" is therefore a log question, not a crash.
 - To reset a repo's memory, delete its bank on the server. The bank is the only state kept — there
   are no client-side files to clean up.
+- New wiring needs an app restart: the app reads `hooks.json` and `mcp_config.json` at startup. If
+  the `hindsight_*` tools are missing, that is the first thing to check — then whether the app lists
+  `hindsight` under its MCP servers at all.
 - A session that was already running when the plugin was installed has no session start behind it;
   its first prompt after the install self-heals.

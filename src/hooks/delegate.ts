@@ -7,7 +7,7 @@
  * is not.
  */
 import { runRuntimeEntry, RuntimeUnavailableError } from "../runtime.js";
-import type { RuntimeEntry } from "../harness.js";
+import type { RuntimeEntry } from "../host.js";
 
 export interface DelegateOptions {
   /** Runtime entry point to run. */

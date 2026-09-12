@@ -5,7 +5,6 @@ export default defineConfig({
     index: "src/index.ts",
     "pre-invocation": "src/hooks/pre-invocation.ts",
     "stop-hook": "src/hooks/stop-hook.ts",
-    statusline: "src/statusline.ts",
     "mcp-server": "src/mcp/server.ts",
     installer: "src/installer.ts"
   },

@@ -3,16 +3,17 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
+  APP_MCP_CONFIG_PATH,
   HOOKS_CONFIG_PATH,
-  HOOK_MARKER,
+  HOOK_NAME,
   HOOK_WIRING,
-  MCP_CONFIG_PATH,
   MCP_HARNESS_ENV,
   MCP_SERVER_NAME,
-  SETTINGS_PATH,
-  SKILLS_DIR,
+  PLUGIN_DIR,
+  PLUGIN_NAME,
+  SHARED_MCP_CONFIG_PATH,
   SKILL_NAME
-} from "../src/harness.js";
+} from "../src/host.js";
 import {
   binPath,
   hookEntry,
@@ -27,18 +28,31 @@ let home: string;
 let pkgRoot: string;
 let logged: string[];
 
+const PKG_VERSION = "9.9.9";
+
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "hindsight-home-"));
   pkgRoot = mkdtempSync(join(tmpdir(), "hindsight-pkg-"));
   logged = [];
 
-  // A plausible package layout: the wrappers the host spawns, and the bundled skill.
+  // A plausible package layout: the wrappers the host spawns, the manifest template, and the
+  // declarative assets the bundle carries.
   mkdirSync(join(pkgRoot, "bin"), { recursive: true });
-  for (const bin of ["pre-invocation.js", "stop-hook.js", "statusline.js", "mcp-server.js"]) {
+  for (const bin of ["pre-invocation.js", "stop-hook.js", "mcp-server.js"]) {
     writeFileSync(join(pkgRoot, "bin", bin), "#!/usr/bin/env node\n");
   }
   mkdirSync(join(pkgRoot, "skills", SKILL_NAME), { recursive: true });
   writeFileSync(join(pkgRoot, "skills", SKILL_NAME, "SKILL.md"), "# Hindsight\n");
+  mkdirSync(join(pkgRoot, "rules"), { recursive: true });
+  writeFileSync(join(pkgRoot, "rules", "AGENTS.md"), "# Memory rules\n");
+  writeFileSync(
+    join(pkgRoot, "plugin.json"),
+    `${JSON.stringify({ name: PLUGIN_NAME, description: "memory" }, null, 2)}\n`
+  );
+  writeFileSync(
+    join(pkgRoot, "package.json"),
+    `${JSON.stringify({ name: "@chronova/x", version: PKG_VERSION }, null, 2)}\n`
+  );
 });
 
 afterEach(() => {
@@ -46,12 +60,19 @@ afterEach(() => {
   rmSync(pkgRoot, { recursive: true, force: true });
 });
 
-const ctx = (): InstallContext => ({ home, pkgRoot, log: (message) => void logged.push(message) });
+const ctx = (extra: InstallContext = {}): InstallContext => ({
+  home,
+  pkgRoot,
+  log: (message) => void logged.push(message),
+  ...extra
+});
 
 const hooksPath = (): string => join(home, ...HOOKS_CONFIG_PATH);
-const mcpPath = (): string => join(home, ...MCP_CONFIG_PATH);
-const settingsPath = (): string => join(home, ...SETTINGS_PATH);
-const skillDir = (): string => join(home, ...SKILLS_DIR, SKILL_NAME);
+const appMcpPath = (): string => join(home, ...APP_MCP_CONFIG_PATH);
+const sharedMcpPath = (): string => join(home, ...SHARED_MCP_CONFIG_PATH);
+const pluginDir = (): string => join(home, ...PLUGIN_DIR);
+const skillDir = (): string => join(pluginDir(), "skills", SKILL_NAME);
+const rulesDir = (): string => join(pluginDir(), "rules");
 
 function readJsonFile(path: string): Record<string, unknown> {
   const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
@@ -66,9 +87,9 @@ function seed(path: string, value: unknown): string {
   return text;
 }
 
-/** The object under `hooks.json`'s marker key, which is where our entries live. */
+/** The object under `hooks.json`'s hook name, which is where our entries live. */
 function hookGroup(): Record<string, unknown> {
-  const group = readJsonFile(hooksPath())[HOOK_MARKER];
+  const group = readJsonFile(hooksPath())[HOOK_NAME];
   expect(group).toBeObject();
   return group as Record<string, unknown>;
 }
@@ -80,9 +101,14 @@ function entriesAt(container: Record<string, unknown>, event: string): Record<st
   return value as Record<string, unknown>[];
 }
 
+function servers(path: string): Record<string, unknown> {
+  const value = readJsonFile(path).mcpServers;
+  expect(value).toBeObject();
+  return value as Record<string, unknown>;
+}
+
 const FOREIGN_HOOK = { command: "node /opt/other-tool/pre.js", timeout: 5 };
 const FOREIGN_MCP = { command: "npx", args: ["-y", "some-other-hindsight"] };
-const FOREIGN_STATUS_LINE = { type: "command", command: "node /opt/my-own-statusline.js" };
 
 describe("Installer path helpers", () => {
   test("binPath points at this package's wrapper", () => {
@@ -98,7 +124,7 @@ describe("Installer path helpers", () => {
     }
   });
 
-  test("mcpServerEntry spawns our wrapper and names the harness", () => {
+  test("mcpServerEntry spawns our wrapper and names the runtime's harness", () => {
     expect(mcpServerEntry("/pkg")).toEqual({
       command: "node",
       args: [join("/pkg", "bin", "mcp-server.js")],
@@ -124,24 +150,47 @@ describe("Installer path helpers", () => {
 });
 
 describe("install", () => {
-  test("writes all four artefacts into the host's config tree", () => {
+  test("reports every path it wrote, and writes the app's MCP registry by default", () => {
     const result = install(ctx());
 
     expect(result).toEqual({
       hooksPath: hooksPath(),
-      mcpPath: mcpPath(),
-      settingsPath: settingsPath(),
+      appMcpPath: appMcpPath(),
+      sharedMcpPath: sharedMcpPath(),
+      pluginDir: pluginDir(),
       skillDir: skillDir(),
-      statusLine: "installed",
-      mcp: "installed",
-      skill: "installed"
+      rulesDir: rulesDir(),
+      appMcp: "installed",
+      sharedMcp: "skipped",
+      skill: "installed",
+      rules: "installed"
     });
-    for (const path of [hooksPath(), mcpPath(), settingsPath()]) {
-      expect(existsSync(path)).toBe(true);
-    }
+    for (const path of [hooksPath(), appMcpPath()]) expect(existsSync(path)).toBe(true);
   });
 
-  test("merges one hook entry per wired event, under the shared marker key", () => {
+  test("registers the MCP server in the desktop app's own config directory", () => {
+    install(ctx());
+
+    expect(servers(appMcpPath())[MCP_SERVER_NAME]).toEqual(mcpServerEntry(pkgRoot));
+    // The shared 2.x registry is opt-in: writing both would list the server twice.
+    expect(existsSync(sharedMcpPath())).toBe(false);
+  });
+
+  test("writes the shared 2.x registry only when asked", () => {
+    const result = install(ctx({ sharedMcp: true }));
+
+    expect(result.sharedMcp).toBe("installed");
+    expect(servers(sharedMcpPath())[MCP_SERVER_NAME]).toEqual(mcpServerEntry(pkgRoot));
+    expect(servers(appMcpPath())[MCP_SERVER_NAME]).toEqual(mcpServerEntry(pkgRoot));
+  });
+
+  test("never writes anything into the Antigravity CLI's tree", () => {
+    install(ctx({ sharedMcp: true }));
+
+    expect(existsSync(join(home, ".gemini", "antigravity-cli"))).toBe(false);
+  });
+
+  test("merges one hook entry per wired event, under the shared hook name", () => {
     install(ctx());
     const group = hookGroup();
 
@@ -155,42 +204,74 @@ describe("install", () => {
     expect(Object.keys(group).sort()).toEqual(HOOK_WIRING.map((w) => w.event).sort());
   });
 
-  test("registers the MCP server with the harness marker in its environment", () => {
+  test("writes absolute commands: Antigravity expands no placeholder in these files", () => {
     install(ctx());
 
-    const servers = readJsonFile(mcpPath()).mcpServers as Record<string, unknown>;
-    expect(servers[MCP_SERVER_NAME]).toEqual(mcpServerEntry(pkgRoot));
-    expect(isOurMcpEntry(servers[MCP_SERVER_NAME])).toBe(true);
+    const text = readFileSync(hooksPath(), "utf8") + readFileSync(appMcpPath(), "utf8");
+    expect(text).not.toContain("${");
+    for (const wiring of HOOK_WIRING) {
+      expect(text).toContain(join(pkgRoot, "bin", wiring.bin));
+    }
   });
+});
 
-  test("enables the Hindsight status line", () => {
+describe("the plugin bundle", () => {
+  test("carries the manifest, the skill and the rules", () => {
     install(ctx());
 
-    const statusLine = readJsonFile(settingsPath()).statusLine as Record<string, unknown>;
-    expect(statusLine.type).toBe("command");
-    expect(statusLine.command).toBe(`node "${join(pkgRoot, "bin", "statusline.js")}"`);
-  });
-
-  test("copies the bundled skill into the host's skills directory", () => {
-    const result = install(ctx());
-
-    expect(result.skill).toBe("installed");
     expect(readFileSync(join(skillDir(), "SKILL.md"), "utf8")).toBe("# Hindsight\n");
+    expect(readFileSync(join(rulesDir(), "AGENTS.md"), "utf8")).toBe("# Memory rules\n");
+
+    const manifest = readJsonFile(join(pluginDir(), "plugin.json"));
+    expect(manifest.name).toBe(PLUGIN_NAME);
+    expect(manifest.description).toBe("memory");
   });
 
-  test("reports a skipped skill when the package bundles none", () => {
+  test("stamps the installed package's version, so the two manifests cannot drift", () => {
+    install(ctx());
+
+    expect(readJsonFile(join(pluginDir(), "plugin.json")).version).toBe(PKG_VERSION);
+    // The template deliberately carries none — the version has one source of truth.
+    expect(readJsonFile(join(pkgRoot, "plugin.json")).version).toBeUndefined();
+  });
+
+  test("carries no hooks.json or mcp_config.json: either would be a second registration", () => {
+    install(ctx());
+
+    expect(existsSync(join(pluginDir(), "hooks.json"))).toBe(false);
+    expect(existsSync(join(pluginDir(), "mcp_config.json"))).toBe(false);
+  });
+
+  test("replaces a stale copy of an asset rather than merging into it", () => {
+    install(ctx());
+    writeFileSync(join(skillDir(), "GONE.md"), "removed upstream\n");
+
+    install(ctx());
+
+    expect(existsSync(join(skillDir(), "GONE.md"))).toBe(false);
+    expect(existsSync(join(skillDir(), "SKILL.md"))).toBe(true);
+  });
+
+  test("reports skipped assets when the package bundles none", () => {
     rmSync(join(pkgRoot, "skills"), { recursive: true, force: true });
+    rmSync(join(pkgRoot, "rules"), { recursive: true, force: true });
 
     const result = install(ctx());
 
     expect(result.skill).toBe("skipped");
+    expect(result.rules).toBe("skipped");
     expect(existsSync(skillDir())).toBe(false);
+    expect(existsSync(rulesDir())).toBe(false);
+    // The manifest still goes out: the bundle is what makes the plugin discoverable.
+    expect(existsSync(join(pluginDir(), "plugin.json"))).toBe(true);
   });
+});
 
+describe("install: living alongside what is already there", () => {
   test("writes 2-space JSON with a trailing newline", () => {
-    install(ctx());
+    install(ctx({ sharedMcp: true }));
 
-    for (const path of [hooksPath(), mcpPath(), settingsPath()]) {
+    for (const path of [hooksPath(), appMcpPath(), sharedMcpPath()]) {
       const text = readFileSync(path, "utf8");
       expect(text.endsWith("\n")).toBe(true);
       expect(text).toBe(`${JSON.stringify(JSON.parse(text) as unknown, null, 2)}\n`);
@@ -203,7 +284,7 @@ describe("install", () => {
     install(ctx());
 
     const hooks = readJsonFile(hooksPath());
-    expect(Object.keys(hooks).filter((key) => key.includes(HOOK_MARKER))).toEqual([HOOK_MARKER]);
+    expect(Object.keys(hooks).filter((key) => key.includes(HOOK_NAME))).toEqual([HOOK_NAME]);
     for (const wiring of HOOK_WIRING) {
       expect(entriesAt(hookGroup(), wiring.event)).toHaveLength(1);
     }
@@ -242,14 +323,13 @@ describe("install", () => {
   });
 
   test("preserves a foreign MCP server registered under the hindsight name", () => {
-    seed(mcpPath(), { mcpServers: { [MCP_SERVER_NAME]: FOREIGN_MCP, other: FOREIGN_MCP } });
+    seed(appMcpPath(), { mcpServers: { [MCP_SERVER_NAME]: FOREIGN_MCP, other: FOREIGN_MCP } });
 
     const result = install(ctx());
 
-    expect(result.mcp).toBe("preserved");
-    const servers = readJsonFile(mcpPath()).mcpServers as Record<string, unknown>;
-    expect(servers[MCP_SERVER_NAME]).toEqual(FOREIGN_MCP);
-    expect(servers.other).toEqual(FOREIGN_MCP);
+    expect(result.appMcp).toBe("preserved");
+    expect(servers(appMcpPath())[MCP_SERVER_NAME]).toEqual(FOREIGN_MCP);
+    expect(servers(appMcpPath()).other).toEqual(FOREIGN_MCP);
     expect(logged.join("\n")).toContain("preserved");
   });
 
@@ -259,42 +339,19 @@ describe("install", () => {
       args: ["/usr/lib/node_modules/@vectorize-io/hindsight-coding-agents/dist/mcp-server.js"],
       env: { [MCP_HARNESS_ENV]: "antigravity-cli" }
     };
-    seed(mcpPath(), { mcpServers: { [MCP_SERVER_NAME]: upstream, other: FOREIGN_MCP } });
+    seed(appMcpPath(), { mcpServers: { [MCP_SERVER_NAME]: upstream, other: FOREIGN_MCP } });
 
     const result = install(ctx());
 
-    expect(result.mcp).toBe("installed");
-    const servers = readJsonFile(mcpPath()).mcpServers as Record<string, unknown>;
-    expect(servers[MCP_SERVER_NAME]).toEqual(mcpServerEntry(pkgRoot));
-    expect(servers.other).toEqual(FOREIGN_MCP);
-  });
-
-  test("preserves an unrelated custom status line", () => {
-    seed(settingsPath(), { statusLine: FOREIGN_STATUS_LINE, theme: "dark" });
-
-    const result = install(ctx());
-
-    expect(result.statusLine).toBe("preserved");
-    const settings = readJsonFile(settingsPath());
-    expect(settings.statusLine).toEqual(FOREIGN_STATUS_LINE);
-    expect(settings.theme).toBe("dark");
-    expect(logged.join("\n")).toContain("preserved");
-  });
-
-  test("rewrites a status line that is already ours", () => {
-    install(ctx());
-    const result = install(ctx());
-
-    expect(result.statusLine).toBe("installed");
-    const statusLine = readJsonFile(settingsPath()).statusLine as Record<string, unknown>;
-    expect(statusLine.command).toBe(`node "${join(pkgRoot, "bin", "statusline.js")}"`);
+    expect(result.appMcp).toBe("installed");
+    expect(servers(appMcpPath())[MCP_SERVER_NAME]).toEqual(mcpServerEntry(pkgRoot));
+    expect(servers(appMcpPath()).other).toEqual(FOREIGN_MCP);
   });
 
   test("backs each touched file up once, keeping the user's original", () => {
     const originals = {
       [hooksPath()]: seed(hooksPath(), { PreInvocation: [FOREIGN_HOOK] }),
-      [mcpPath()]: seed(mcpPath(), { mcpServers: { other: FOREIGN_MCP } }),
-      [settingsPath()]: seed(settingsPath(), { theme: "dark" })
+      [appMcpPath()]: seed(appMcpPath(), { mcpServers: { other: FOREIGN_MCP } })
     };
 
     install(ctx());
@@ -309,7 +366,7 @@ describe("install", () => {
   test("takes no backup of a file it created itself", () => {
     install(ctx());
 
-    for (const path of [hooksPath(), mcpPath(), settingsPath()]) {
+    for (const path of [hooksPath(), appMcpPath()]) {
       expect(existsSync(`${path}.hindsight-backup`)).toBe(false);
     }
   });
@@ -322,20 +379,27 @@ describe("uninstall", () => {
 
     expect(result).toEqual({
       hooksPath: hooksPath(),
-      mcpPath: mcpPath(),
-      settingsPath: settingsPath(),
-      skillDir: skillDir()
+      appMcpPath: appMcpPath(),
+      sharedMcpPath: sharedMcpPath(),
+      pluginDir: pluginDir(),
+      pluginRemoved: true
     });
 
     const hooks = readJsonFile(hooksPath());
-    expect(hooks[HOOK_MARKER]).toBeUndefined();
+    expect(hooks[HOOK_NAME]).toBeUndefined();
     for (const wiring of HOOK_WIRING) expect(hooks[wiring.event]).toBeUndefined();
 
-    const servers = readJsonFile(mcpPath()).mcpServers as Record<string, unknown>;
-    expect(servers[MCP_SERVER_NAME]).toBeUndefined();
+    expect(servers(appMcpPath())[MCP_SERVER_NAME]).toBeUndefined();
+    expect(existsSync(pluginDir())).toBe(false);
+  });
 
-    expect(readJsonFile(settingsPath()).statusLine).toBeUndefined();
-    expect(existsSync(skillDir())).toBe(false);
+  test("cleans the shared registry too, however this machine was installed", () => {
+    // A user who once passed --shared-mcp must not be left pointing at a plugin that is gone.
+    install(ctx({ sharedMcp: true }));
+    uninstall(ctx());
+
+    expect(servers(sharedMcpPath())[MCP_SERVER_NAME]).toBeUndefined();
+    expect(servers(appMcpPath())[MCP_SERVER_NAME]).toBeUndefined();
   });
 
   test("leaves every foreign entry alone", () => {
@@ -343,8 +407,7 @@ describe("uninstall", () => {
       "other-tool": { PreInvocation: [FOREIGN_HOOK] },
       PreInvocation: [FOREIGN_HOOK]
     });
-    seed(mcpPath(), { mcpServers: { other: FOREIGN_MCP } });
-    seed(settingsPath(), { theme: "dark" });
+    seed(appMcpPath(), { mcpServers: { other: FOREIGN_MCP } });
 
     install(ctx());
     uninstall(ctx());
@@ -352,22 +415,26 @@ describe("uninstall", () => {
     const hooks = readJsonFile(hooksPath());
     expect(hooks["other-tool"]).toEqual({ PreInvocation: [FOREIGN_HOOK] });
     expect(entriesAt(hooks, "PreInvocation")).toEqual([FOREIGN_HOOK]);
-    expect((readJsonFile(mcpPath()).mcpServers as Record<string, unknown>).other).toEqual(
-      FOREIGN_MCP
-    );
-    expect(readJsonFile(settingsPath()).theme).toBe("dark");
+    expect(servers(appMcpPath()).other).toEqual(FOREIGN_MCP);
   });
 
-  test("never removes a foreign hindsight MCP server or a foreign status line", () => {
-    seed(mcpPath(), { mcpServers: { [MCP_SERVER_NAME]: FOREIGN_MCP } });
-    seed(settingsPath(), { statusLine: FOREIGN_STATUS_LINE });
+  test("never removes a foreign hindsight MCP server", () => {
+    seed(appMcpPath(), { mcpServers: { [MCP_SERVER_NAME]: FOREIGN_MCP } });
 
     install(ctx());
     uninstall(ctx());
 
-    const servers = readJsonFile(mcpPath()).mcpServers as Record<string, unknown>;
-    expect(servers[MCP_SERVER_NAME]).toEqual(FOREIGN_MCP);
-    expect(readJsonFile(settingsPath()).statusLine).toEqual(FOREIGN_STATUS_LINE);
+    expect(servers(appMcpPath())[MCP_SERVER_NAME]).toEqual(FOREIGN_MCP);
+  });
+
+  test("keeps a plugin directory that is not ours", () => {
+    seed(join(pluginDir(), "plugin.json"), { name: "someone-elses-hindsight" });
+
+    const result = uninstall(ctx());
+
+    expect(result.pluginRemoved).toBe(false);
+    expect(existsSync(join(pluginDir(), "plugin.json"))).toBe(true);
+    expect(logged.join("\n")).toContain("not ours");
   });
 
   test("is safe to run twice, and on a machine that was never installed", () => {
@@ -377,6 +444,6 @@ describe("uninstall", () => {
     uninstall(ctx());
 
     expect(() => uninstall(ctx())).not.toThrow();
-    expect(existsSync(skillDir())).toBe(false);
+    expect(existsSync(pluginDir())).toBe(false);
   });
 });

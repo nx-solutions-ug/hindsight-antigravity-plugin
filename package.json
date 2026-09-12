@@ -1,13 +1,12 @@
 {
   "name": "@chronova/hindsight-antigravity-plugin",
   "version": "2.0.0",
-  "description": "Antigravity plugin packaging of the Hindsight coding-agent runtime: long-term project memory, recalled before each turn and retained after it",
+  "description": "Hindsight long-term project memory for the Antigravity desktop application: recalled before each turn, retained after it",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
     "hindsight-antigravity-pre-invocation": "bin/pre-invocation.js",
     "hindsight-antigravity-stop-hook": "bin/stop-hook.js",
-    "hindsight-antigravity-statusline": "bin/statusline.js",
     "hindsight-antigravity-mcp": "bin/mcp-server.js",
     "hindsight-antigravity-install": "bin/install.js"
   },
@@ -17,8 +16,6 @@
     "rules",
     "skills",
     "plugin.json",
-    "hooks.json",
-    "mcp_config.json",
     "README.md",
     "LICENSE"
   ],
@@ -32,7 +29,8 @@
   },
   "keywords": [
     "antigravity",
-    "agy",
+    "antigravity-app",
+    "gemini",
     "hindsight",
     "memory",
     "long-term-memory",

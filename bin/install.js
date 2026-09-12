@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Wire this plugin into Antigravity (or take it back out).
+ * Wire this plugin into the Antigravity desktop app (or take it back out).
  *
  * Dependency-free on purpose: it runs straight after `npm i -g`, before anything has been built in
  * the user's checkout, so it may import only the package's own compiled output.
@@ -16,11 +16,19 @@ import {
 
 const USAGE = `hindsight-antigravity-install [install|uninstall] [options]
 
-  install        wire hooks, MCP server, status line and skill into Antigravity (default)
+  install        wire the hooks, the MCP server and the plugin bundle into the Antigravity
+                 desktop app (default)
   uninstall      remove exactly what install added, leaving foreign entries alone
 
-Options (install only; each seeds ~/.hindsight/coding-agent.json when it does not already
-say where the server is — an existing choice is never overwritten):
+Options (install only):
+
+  --shared-mcp                          also register the MCP server in Antigravity 2.x's shared
+                                        ~/.gemini/config/mcp_config.json. Only pass this if the app
+                                        does not pick the server up from its own config, since a
+                                        host that reads both files will list it twice.
+
+Server options (each seeds ~/.hindsight/coding-agent.json when it does not already say where the
+server is — an existing choice is never overwritten):
 
   --server <cloud|self-hosted|daemon>   which Hindsight server to use
   --api-url <url>                       server URL (self-hosted)
@@ -55,7 +63,10 @@ function flag(name) {
 
 if (verb === "uninstall") {
   const result = uninstall({ log });
-  log(`Hindsight removed from ${result.hooksPath}, ${result.mcpPath} and ${result.settingsPath}.`);
+  log(`Hindsight removed from ${result.hooksPath} and ${result.appMcpPath}.`);
+  if (!result.pluginRemoved) {
+    log(`${result.pluginDir} was left in place — its plugin.json is not ours.`);
+  }
   process.exit(0);
 }
 
@@ -84,19 +95,32 @@ if (seeded.length) {
   log(`Seeded ${seeded.join(", ")} in ${path}.`);
 }
 
-const result = install({ log });
+const result = install({ log, sharedMcp: argv.includes("--shared-mcp") });
 const server = describeServer(config);
 
 log("");
-log(`Hindsight is wired into Antigravity (${result.hooksPath}).`);
+log("Hindsight is wired into the Antigravity desktop app.");
 log(
   `  server:      ${server.mode}${server.apiUrl ? ` (${server.apiUrl})` : ""}` +
     `${server.hasToken ? " with API token" : " without API token"}` +
     `${server.source === "default" ? " — default; set one with --server" : ""}`
 );
 log(`  config:      ${path}`);
-log(`  MCP server:  ${result.mcp === "installed" ? result.mcpPath : "preserved existing entry"}`);
-log(`  status line: ${result.statusLine === "installed" ? result.settingsPath : "preserved yours"}`);
+log(`  hooks:       ${result.hooksPath}`);
+log(
+  `  MCP server:  ${
+    result.appMcp === "installed" ? result.appMcpPath : "preserved existing entry"
+  }`
+);
+if (result.sharedMcp !== "skipped") {
+  log(
+    `  shared MCP:  ${
+      result.sharedMcp === "installed" ? result.sharedMcpPath : "preserved existing entry"
+    }`
+  );
+}
+log(`  plugin:      ${result.pluginDir}`);
 log(`  skill:       ${result.skill === "installed" ? result.skillDir : "not bundled — skipped"}`);
+log(`  rules:       ${result.rules === "installed" ? result.rulesDir : "not bundled — skipped"}`);
 log("");
-log("Restart `agy` to pick up the new wiring.");
+log("Restart the Antigravity app to pick up the new wiring.");

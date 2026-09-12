@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
-import { RUNTIME_PACKAGE, type RuntimeEntry } from "../src/harness.js";
+import { RUNTIME_PACKAGE, type RuntimeEntry } from "../src/host.js";
 import {
   RuntimeUnavailableError,
   resolveRuntimeEntry,
@@ -17,7 +17,6 @@ const repoRoot = join(import.meta.dir, "..");
 const ENTRIES: readonly RuntimeEntry[] = [
   "antigravity-hook.js",
   "antigravity-stop-hook.js",
-  "antigravity-statusline.js",
   "mcp-server.js"
 ];
 
@@ -108,12 +107,12 @@ describe("Runtime resolution", () => {
 
 describe("RuntimeUnavailableError", () => {
   test("names the entry it could not resolve", () => {
-    const error = new RuntimeUnavailableError("antigravity-statusline.js");
+    const error = new RuntimeUnavailableError("antigravity-hook.js");
 
     expect(error).toBeInstanceOf(Error);
     expect(error.name).toBe("RuntimeUnavailableError");
-    expect(error.entry).toBe("antigravity-statusline.js");
-    expect(error.message).toContain("antigravity-statusline.js");
+    expect(error.entry).toBe("antigravity-hook.js");
+    expect(error.message).toContain("antigravity-hook.js");
     expect(error.message).toContain(RUNTIME_PACKAGE);
   });
 
@@ -127,8 +126,7 @@ describe("RuntimeUnavailableError", () => {
 });
 
 /**
- * `mcp-server.js` self-starts only when `process.argv[1]` equals its own path and
- * `antigravity-statusline.js` only when `process.argv[1]` ends with its name, so `runRuntimeEntry`
+ * `mcp-server.js` self-starts only when `process.argv[1]` equals its own path, so `runRuntimeEntry`
  * stands in as the spawned script for the duration of the import. What must not leak is the
  * substitution itself: anything that reads `process.argv` afterwards — the runtime's own later
  * calls included — has to see what the host actually spawned.
