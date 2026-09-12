@@ -1,3 +1,10 @@
+## [3.0.2](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/compare/v3.0.1...v3.0.2) (2026-09-12)
+
+
+### Bug Fixes
+
+* **ci:** quote command descriptions containing a colon ([d1e8077](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/commit/d1e8077e501eafd6ada7a2f135ea0de3e5fda5bc))
+
 ## [3.0.1](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/compare/v3.0.0...v3.0.1) (2026-09-12)
 
 
