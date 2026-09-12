@@ -199,7 +199,9 @@ describe("MCP server", () => {
 
   afterEach(() => {
     // `runServer` marks a failed start on the process; keep that out of the test run's own status.
-    process.exitCode = previousExitCode;
+    // Bun does not treat `process.exitCode = undefined` as a reset — the previous value stands — so
+    // an unset code has to be restored as an explicit 0, or this suite would end a green run red.
+    process.exitCode = previousExitCode ?? 0;
   });
 
   test("tells the runtime which harness is asking", async () => {
