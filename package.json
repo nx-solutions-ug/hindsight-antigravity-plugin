@@ -2,13 +2,30 @@
   "name": "@chronova/hindsight-antigravity-plugin",
   "version": "3.0.2",
   "description": "Hindsight long-term project memory for the Antigravity desktop application: recalled before each turn, retained after it",
-  "type": "module",
-  "main": "dist/index.js",
+  "keywords": [
+    "ai-agent",
+    "antigravity",
+    "antigravity-app",
+    "coding-agent",
+    "gemini",
+    "hindsight",
+    "long-term-memory",
+    "mcp",
+    "memory",
+    "plugin"
+  ],
+  "homepage": "https://github.com/nx-solutions-ug/hindsight-antigravity-plugin#readme",
+  "license": "MIT",
+  "author": "nx-solutions-ug",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nx-solutions-ug/hindsight-antigravity-plugin.git"
+  },
   "bin": {
-    "hindsight-antigravity-pre-invocation": "bin/pre-invocation.js",
-    "hindsight-antigravity-stop-hook": "bin/stop-hook.js",
+    "hindsight-antigravity-install": "bin/install.js",
     "hindsight-antigravity-mcp": "bin/mcp-server.js",
-    "hindsight-antigravity-install": "bin/install.js"
+    "hindsight-antigravity-pre-invocation": "bin/pre-invocation.js",
+    "hindsight-antigravity-stop-hook": "bin/stop-hook.js"
   },
   "files": [
     "dist",
@@ -19,35 +36,23 @@
     "README.md",
     "LICENSE"
   ],
+  "type": "module",
+  "main": "dist/index.js",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsup",
     "test": "bun test",
-    "lint": "tsc --noEmit",
+    "lint": "oxlint --react-plugin --vitest-plugin --import-plugin",
     "prepublishOnly": "bun run build",
     "semantic-release": "semantic-release",
-    "install-plugin": "node ./bin/install.js"
-  },
-  "keywords": [
-    "antigravity",
-    "antigravity-app",
-    "gemini",
-    "hindsight",
-    "memory",
-    "long-term-memory",
-    "coding-agent",
-    "plugin",
-    "mcp",
-    "ai-agent"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/nx-solutions-ug/hindsight-antigravity-plugin.git"
-  },
-  "homepage": "https://github.com/nx-solutions-ug/hindsight-antigravity-plugin#readme",
-  "author": "nx-solutions-ug",
-  "license": "MIT",
-  "publishConfig": {
-    "access": "public"
+    "install-plugin": "node ./bin/install.js",
+    "type-check": "tsc --noEmit",
+    "lint:fix": "oxlint --react-plugin --vitest-plugin --import-plugin --fix",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "prepare": "husky"
   },
   "dependencies": {
     "@vectorize-io/hindsight-coding-agents": "^0.6.0"
@@ -60,8 +65,12 @@
     "@semantic-release/npm": "^13.0.0",
     "@semantic-release/release-notes-generator": "^14.0.3",
     "@types/node": "^26.0.0",
+    "husky": "^9.1.7",
+    "oxfmt": "^0.67.0",
+    "oxlint": "^1.82.0",
     "semantic-release": "^25.0.0",
     "tsup": "^8.3.6",
     "typescript": "^6.0.0"
-  }
+  },
+  "packageManager": "bun@1.4.2"
 }
