@@ -1,3 +1,12 @@
+<p align="center">
+  <img src="public/banner.png" alt="hindsight-antigravity-plugin — Long-Term Project Memory Extension for Google Antigravity" width="850" />
+</p>
+
+[![npm version](https://img.shields.io/npm/v/@chronova/hindsight-antigravity-plugin.svg)](https://www.npmjs.com/package/@chronova/hindsight-antigravity-plugin)
+[![Tests](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/actions/workflows/test.yml/badge.svg)](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/actions/workflows/test.yml)
+[![Release](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/actions/workflows/release.yml/badge.svg)](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/actions/workflows/release.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 # Hindsight Antigravity Plugin
 
 Long-term project memory for the **Google Antigravity desktop application** — the app you launch and
