@@ -37,6 +37,6 @@ jobs:
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
         run: |
-          gh label create vouched --color 2da44e --description "Passed the vouch gate" --force
+          gh label create vouched --repo "$REPO" --color 2da44e --description "Passed the vouch gate" --force
           gh pr edit "$PR" --repo "$REPO" --remove-label vouched || true
           gh pr edit "$PR" --repo "$REPO" --add-label vouched
