@@ -1,3 +1,10 @@
+## [3.0.4](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/compare/v3.0.3...v3.0.4) (2026-09-25)
+
+
+### Bug Fixes
+
+* **deps:** update dependency @vectorize-io/hindsight-coding-agents to ^0.7.0 ([#15](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/issues/15)) ([66139dd](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/commit/66139dd38733ee7d5e67a26efb61dc94bd2ff61d))
+
 ## [3.0.3](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/compare/v3.0.2...v3.0.3) (2026-09-12)
 
 
