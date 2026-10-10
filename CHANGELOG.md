@@ -1,3 +1,10 @@
+## [3.0.6](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/compare/v3.0.5...v3.0.6) (2026-10-10)
+
+
+### Bug Fixes
+
+* **ci:** stop double 👀 reaction on [@claude](https://github.com/claude) comments ([#21](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/issues/21)) ([b0e71fe](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/commit/b0e71fe9dbfddd6e40c9076c2ba672921d54e012))
+
 ## [3.0.5](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/compare/v3.0.4...v3.0.5) (2026-10-02)
 
 
