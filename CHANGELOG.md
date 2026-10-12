@@ -1,3 +1,10 @@
+## [3.0.7](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/compare/v3.0.6...v3.0.7) (2026-10-12)
+
+
+### Bug Fixes
+
+* **ci:** run the Claude agent as chronova-agent[bot] and allow it in dependency review ([#22](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/issues/22)) ([30699e5](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/commit/30699e5a85f38511a54adbcc830d53a1c3c8bce9))
+
 ## [3.0.6](https://github.com/nx-solutions-ug/hindsight-antigravity-plugin/compare/v3.0.5...v3.0.6) (2026-10-10)
 
 
